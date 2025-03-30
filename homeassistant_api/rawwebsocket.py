@@ -4,6 +4,7 @@ import time
 from typing import Any, Optional, Union, cast
 
 import websockets.sync.client as ws
+import websockets.asyncio.client as ws_async
 from pydantic import ValidationError
 
 from homeassistant_api.errors import (
@@ -28,7 +29,11 @@ logger = logging.getLogger(__name__)
 class RawWebsocketClient:
     api_url: str
     token: str
-    _conn: Optional[ws.ClientConnection]
+    _conn: Optional[ws.ClientConnection | ws_async.ClientConnection]
+    _id_counter: int
+    _result_responses: dict[int, Optional[ResultResponse]]
+    _event_responses: dict[int, list[EventResponse]]
+    _ping_responses: dict[int, PingResponse]
 
     def __init__(
         self,
@@ -63,6 +68,18 @@ class RawWebsocketClient:
         self._conn.__exit__(exc_type, exc_value, traceback)
         self._conn = None
 
+    async def __aenter__(self):
+        self._conn = ws_async.connect(self.api_url)
+        await self._conn.__aenter__()
+        okay = self.authentication_phase()
+        logging.info("Authenticated with Home Assistant (%s)", okay.ha_version)
+        self.supported_features_phase()
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self._conn.__aexit__(exc_type, exc_value, traceback)
+        self._conn = None
+
     def _request_id(self) -> int:
         """Get a unique id for a message."""
         self._id_counter += 1
@@ -75,11 +92,26 @@ class RawWebsocketClient:
             raise ReceivingError("Connection is not open!")
         self._conn.send(json.dumps(data))
 
+    async def _send_async(self, data: dict[str, Any]) -> None:
+        """Send a message to the websocket server."""
+        logger.debug(f"Sending message: {data}")
+        if self._conn is None:
+            raise ReceivingError("Connection is not open!")
+        await self._conn.send(json.dumps(data))
+
     def _recv(self) -> dict[str, Any]:
         """Receive a message from the websocket server."""
         if self._conn is None:
             raise ReceivingError("Connection is not open!")
         _bytes = self._conn.recv()
+        logger.debug("Received message: %s", _bytes)
+        return json.loads(_bytes)
+
+    async def _recv_async(self) -> dict[str, Any]:
+        """Receive a message from the websocket server."""
+        if self._conn is None:
+            raise ReceivingError("Connection is not open!")
+        _bytes = await self._conn.recv()
         logger.debug("Received message: %s", _bytes)
         return json.loads(_bytes)
 
@@ -107,6 +139,33 @@ class RawWebsocketClient:
                 self._result_responses[data["id"]] = None
             return data["id"]
         return -1  # non-command messages don't have an id
+
+    async def async_send(
+        self, type: str, include_id: bool = True, **data: Any
+    ) -> int:
+        """
+        Send a command message to the websocket server and wait for a "result" response.
+
+        Returns the id of the message sent.
+        """
+        if include_id:
+            data["id"] = self._request_id()
+        data["type"] = type
+
+        await self._send_async(data)
+
+        if "id" in data:
+            if data["type"] == "ping":
+                self._ping_responses[data["id"]] = PingResponse(
+                    start=time.perf_counter_ns(),
+                    id=data["id"],
+                    type="pong",
+                )
+            else:
+                self._event_responses[data["id"]] = []
+                self._result_responses[data["id"]] = None
+            return data["id"]
+        return -1
 
     def check_success(self, data: dict[str, Any]) -> None:
         """Check if a command message was successful."""
@@ -154,6 +213,23 @@ class RawWebsocketClient:
 
             ## if not, keep receiving messages until we do
             self.handle_recv(self._recv())
+
+    async def async_recv(
+        self, id: int
+    ) -> Union[EventResponse, ResultResponse, PingResponse]:
+        """Receive a response to a message from the websocket server."""
+        while True:
+            if self._result_responses.get(id) is not None:
+                return cast(dict[int, ResultResponse], self._result_responses).pop(
+                    id
+                )
+            if self._event_responses.get(id, []):
+                return self._event_responses[id].pop(0)
+            if self._ping_responses.get(id) is not None:
+                if self._ping_responses[id].end is not None:
+                    return self._ping_responses.pop(id)
+                
+            self.handle_recv(await self._recv_async())
 
     def authentication_phase(self) -> AuthOk:
         """Authenticate with the websocket server."""
