@@ -76,10 +76,12 @@ def test_get_entity_histories(cached_client: Client) -> None:
             assert isinstance(state, State)
             break
         else:
-            raise AssertionError("No states in entity history found.")
+            msg = "No states in entity history found."
+            raise AssertionError(msg)
         break
     else:
-        raise AssertionError("No history found.")
+        msg = "No history found."
+        raise AssertionError(msg)
 
 
 async def test_async_get_entity_histories(async_cached_client: Client) -> None:
@@ -91,10 +93,12 @@ async def test_async_get_entity_histories(async_cached_client: Client) -> None:
             assert isinstance(state, State)
             break
         else:
-            raise AssertionError("No states in entity history found.")
+            msg = "No states in entity history found."
+            raise AssertionError(msg)
         break
     else:
-        raise AssertionError("No history found.")
+        msg = "No history found."
+        raise AssertionError(msg)
 
 
 def test_get_rendered_template(cached_client: Client) -> None:
@@ -236,7 +240,7 @@ def test_trigger_service_with_response(cached_client: Client) -> None:
     """Tests the `POST /api/services/<domain>/<service>?return_response` endpoint."""
     weather = cached_client.get_domain("weather")
     assert weather is not None
-    changed_states, data = weather.get_forecasts(
+    _changed_states, data = weather.get_forecasts(
         entity_id="weather.forecast_home",
         type="hourly",
     )
@@ -247,7 +251,7 @@ async def test_async_trigger_service_with_response(async_cached_client: Client) 
     """Tests the `POST /api/services/<domain>/<service>?return_response` endpoint."""
     weather = await async_cached_client.async_get_domain("weather")
     assert weather is not None
-    changed_states, data = await weather.get_forecasts(
+    _changed_states, data = await weather.get_forecasts(
         entity_id="weather.forecast_home",
         type="hourly",
     )

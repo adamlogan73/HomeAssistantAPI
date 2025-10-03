@@ -22,9 +22,13 @@ def make_link_role(resource_links: dict[str, str]) -> RoleFunction:
         text: str,
         lineno: int,
         inliner: Inliner,
-        options: dict = {},
-        content: list[str] = [],
+        options: dict | None = None,
+        content: list[str] | None = None,
     ) -> tuple[list[Node], list[system_message]]:
+        if content is None:
+            content = []
+        if options is None:
+            options = {}
         text = utils.unescape(text)
         has_explicit_title, title, key = split_explicit_title(text)
         full_url = resource_links[key]

@@ -5,8 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import AsyncGenerator
-from datetime import datetime
 from posixpath import join
 from typing import TYPE_CHECKING
 from typing import Any
@@ -33,9 +31,12 @@ from .utils import JSONType
 from .utils import prepare_entity_id
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+    from datetime import datetime
+
     from homeassistant_api import Client
 else:
-    Client = None  # pylint: disable=invalid-name
+    Client = object
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ class RawAsyncClient(RawBaseClient):
         | aiohttp_client_cache.session.CachedSession = None,  # Explicitly disable cache with async_cache_session=False
         verify_ssl: bool = True,
         **kwargs,
-    ):
+    ) -> None:
         RawBaseClient.__init__(self, *args, **kwargs)
         connector = aiohttp.TCPConnector(verify_ssl=False) if not verify_ssl else None
         if async_cache_session is False:
@@ -113,9 +114,9 @@ class RawAsyncClient(RawBaseClient):
                 ),
             )
         except asyncio.exceptions.TimeoutError as err:
+            msg = f"Home Assistant did not respond in time (timeout: {kwargs.get('timeout', 300)} sec)"
             raise RequestTimeoutError(
-                f"Home Assistant did not respond in time (timeout: {kwargs.get('timeout', 300)} sec)",
-                self.endpoint(path) + f"?{params}" * bool(params),
+                msg, self.endpoint(path) + f"?{params}" * bool(params),
             ) from err
 
     @staticmethod
@@ -190,15 +191,16 @@ class RawAsyncClient(RawBaseClient):
                 "str",
                 await self.async_request(
                     "template",
-                    json=dict(template=template),
+                    json={"template": template},
                     method="POST",
                 ),
             )
         except RequestError as err:
-            raise BadTemplateError(
+            msg = (
                 "Your template is invalid. "
-                "Try debugging it in the developer tools page of homeassistant.",
-            ) from err
+                "Try debugging it in the developer tools page of homeassistant."
+            )
+            raise BadTemplateError(msg) from err
 
     # API check methods
     async def async_check_api_config(self) -> bool:
@@ -208,14 +210,7 @@ class RawAsyncClient(RawBaseClient):
         """
         res = await self.async_request("config/core/check_config", method="POST")
         res = cast("dict[Any, Any]", res)
-        valid = {"valid": True, "invalid": False}.get(
-            cast(
-                "str",
-                res["result"],
-            ),
-            False,
-        )
-        return valid
+        return {"valid": True, "invalid": False}.get(cast("str", res["result"]), False)
 
     async def async_check_api_running(self) -> bool:
         """
@@ -258,9 +253,8 @@ class RawAsyncClient(RawBaseClient):
                 "Use keyword arguments to pass entity_id. "
                 "Or you can pass the group_id and slug instead."
             )
-            raise ValueError(
-                f"Neither group_id and slug or entity_id provided. {help_msg}",
-            )
+            msg = f"Neither group_id and slug or entity_id provided. {help_msg}"
+            raise ValueError(msg)
         group_id, entity_slug = state.entity_id.split(".")
         group = Group(group_id=group_id, _client=self)  # type: ignore[arg-type]
         group._add_entity(entity_slug, state)
@@ -273,9 +267,9 @@ class RawAsyncClient(RawBaseClient):
         :code:`GET /api/services`
         """
         data = await self.async_request("services")
-        domains = map(
-            lambda json: Domain.from_json(json, client=cast("Client", self)),
-            cast("tuple[dict[str, JSONType], ...]", data),
+        domains = (
+            Domain.from_json(datum, client=cast("Client", self))
+            for datum in cast("tuple[dict[str, JSONType], ...]", data)
         )
         return {domain.domain_id: domain for domain in domains}
 
@@ -384,9 +378,9 @@ class RawAsyncClient(RawBaseClient):
         """
         data = await self.async_request("events")
         return tuple(
-            map(
-                lambda json: Event.from_json(json, client=cast("Client", self)),
-                cast("list[dict[str, JSONType]]", data),
+            (
+                Event.from_json(datum, client=cast("Client", self))
+                for datum in cast("list[dict[str, JSONType]]", data)
             ),
         )
 

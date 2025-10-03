@@ -15,4 +15,4 @@ if api_url is not None and token is not None:
         light = client.get_domain("light")
         assert light is not None
         # Triggers the service with a specific garage door
-        print(light.toggle(entity_id="light.light_bulb_1"))
+        print(light.toggle(entity_id="light.light_bulb_1"))  # noqa: T201

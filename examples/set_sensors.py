@@ -8,4 +8,4 @@ with Client(
         entity_id="sensor.some_variable",
         state="42 the answer to everything",
     )
-    print(new_state)
+    print(new_state)  # noqa: T201

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import gc
 import inspect
-from collections.abc import Coroutine
 from enum import Enum
 from typing import TYPE_CHECKING
 from typing import Any
@@ -13,14 +12,17 @@ from typing import cast
 from pydantic import Field
 
 from homeassistant_api.errors import RequestError
-from homeassistant_api.utils import JSONType
+from homeassistant_api.utils import JSONType  # noqa: TC001
 
 from .base import BaseModel
-from .states import State
 
 if TYPE_CHECKING:
+    from collections.abc import Coroutine
+
     from homeassistant_api import Client
     from homeassistant_api import WebsocketClient
+
+    from .states import State
 
 
 class Domain(BaseModel):
@@ -34,7 +36,8 @@ class Domain(BaseModel):
     ) -> None:
         super().__init__(*args, **kwargs)
         if _client is None:
-            raise ValueError("No client passed.")
+            msg = "No client passed."
+            raise ValueError(msg)
         object.__setattr__(self, "_client", _client)
 
     _client: Client | WebsocketClient
@@ -56,7 +59,8 @@ class Domain(BaseModel):
     ) -> Domain:
         """Constructs Domain and Service models from json data."""
         if "domain" not in json or "services" not in json:
-            raise ValueError("Missing services or domain attribute in json argument.")
+            msg = "Missing services or domain attribute in json argument."
+            raise ValueError(msg)
         domain = cls(domain_id=cast("str", json.get("domain")), _client=client)
         services = cast("dict[str, dict[str, JSONType]]", json.get("services"))
         assert isinstance(services, dict)
@@ -604,9 +608,8 @@ class Service(BaseModel):
         from homeassistant_api import WebsocketClient  # prevent circular import
 
         if isinstance(self.domain._client, WebsocketClient):
-            raise NotImplementedError(
-                "WebsocketClient does not support async/await syntax.",
-            )
+            msg = "WebsocketClient does not support async/await syntax."
+            raise NotImplementedError(msg)
         try:
             return await self.domain._client.async_trigger_service_with_response(
                 self.domain.domain_id,

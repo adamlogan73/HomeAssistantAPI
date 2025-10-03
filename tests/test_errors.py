@@ -212,12 +212,14 @@ def test_exception_processor_not_found_error() -> None:
 
 def test_exception_api_config_error() -> None:
     with pytest.raises(APIConfigurationError):
-        raise APIConfigurationError("(Fake) Server has invalid configuration.yaml")
+        msg = "(Fake) Server has invalid configuration.yaml"
+        raise APIConfigurationError(msg)
 
 
 def test_exception_response_error() -> None:
     with pytest.raises(ResponseError):
-        raise ResponseError("(Fake) Server returned a problematic response.")
+        msg = "(Fake) Server returned a problematic response."
+        raise ResponseError(msg)
 
 
 def test_exception_unexpected_status_code() -> None:

@@ -33,11 +33,12 @@ def prepare_entity_id(
     Favors :code:`entity_id` over :code:`group` or :code:`slug`.
     """
     if (group_id is None or slug is None) and entity_id is None:
-        raise ValueError(
+        msg = (
             "To use group or slug you need to pass both, not just one. "
             "Otherwise pass entity_id. "
-            "Also make sure you are using keyword arguments.",
+            "Also make sure you are using keyword arguments."
         )
+        raise ValueError(msg)
     if group_id is not None and slug is not None:
         entity_id = f"{group_id}.{slug}"
     assert entity_id is not None

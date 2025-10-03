@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Generator
-from datetime import datetime
 from posixpath import join
 from typing import TYPE_CHECKING
 from typing import Any
@@ -14,6 +12,7 @@ from typing import cast
 
 import requests
 import requests_cache
+from typing_extensions import Self
 
 from homeassistant_api.errors import BadTemplateError
 from homeassistant_api.errors import RequestError
@@ -32,6 +31,9 @@ from homeassistant_api.utils import JSONType
 from homeassistant_api.utils import prepare_entity_id
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+    from datetime import datetime
+
     from homeassistant_api import Client
 else:
     Client = None  # pylint: disable=invalid-name
@@ -59,7 +61,7 @@ class RawClient(RawBaseClient):
         | requests_cache.CachedSession = None,  # Explicitly disable cache with cache_session=False
         verify_ssl: bool = True,
         **kwargs,
-    ):
+    ) -> None:
         RawBaseClient.__init__(self, *args, **kwargs)
         self.global_request_kwargs["verify"] = verify_ssl
         if cache_session is False:
@@ -73,7 +75,7 @@ class RawClient(RawBaseClient):
         else:
             self.cache_session = cache_session
 
-    def __enter__(self) -> RawClient:
+    def __enter__(self) -> Self:
         logger.debug("Entering cached requests session %r.", self.cache_session)
         self.cache_session.__enter__()
         self.check_api_running()
@@ -105,9 +107,9 @@ class RawClient(RawBaseClient):
                 **kwargs,
             )
         except requests.exceptions.Timeout as err:
+            msg = f"Home Assistant did not respond in time (timeout: {kwargs.get('timeout', 300)} sec)"
             raise RequestTimeoutError(
-                f"Home Assistant did not respond in time (timeout: {kwargs.get('timeout', 300)} sec)",
-                url=self.endpoint(path) + f"?{params}" * bool(params),
+                msg, url=self.endpoint(path) + f"?{params}" * bool(params),
             ) from err
         return self.response_logic(response=resp, decode_bytes=decode_bytes)
 
@@ -182,17 +184,14 @@ class RawClient(RawBaseClient):
         try:
             return cast(
                 "str",
-                self.request(
-                    "template",
-                    json=dict(template=template),
-                    method="POST",
-                ),
+                self.request("template", json={"template": template}, method="POST"),
             )
         except RequestError as err:
-            raise BadTemplateError(
+            msg = (
                 "Your template is invalid. "
-                "Try debugging it in the developer tools page of homeassistant.",
-            ) from err
+                "Try debugging it in the developer tools page of homeassistant."
+            )
+            raise BadTemplateError(msg) from err
 
     # API check methods
     def check_api_config(self) -> bool:
@@ -204,8 +203,7 @@ class RawClient(RawBaseClient):
             "dict[str, str]",
             self.request("config/core/check_config", method="POST"),
         )
-        valid = {"valid": True, "invalid": False}.get(res["result"], False)
-        return valid
+        return {"valid": True, "invalid": False}.get(res["result"], False)
 
     def check_api_running(self) -> bool:
         """
@@ -251,9 +249,8 @@ class RawClient(RawBaseClient):
                 "Use keyword arguments to pass entity_id. "
                 "Or you can pass the group_id and slug instead"
             )
-            raise ValueError(
-                f"Neither group_id and slug or entity_id provided. {help_msg}",
-            )
+            msg = f"Neither group_id and slug or entity_id provided. {help_msg}"
+            raise ValueError(msg)
         split_group_id, split_slug = state.entity_id.split(".")
         group = Group(
             group_id=split_group_id,
@@ -269,9 +266,9 @@ class RawClient(RawBaseClient):
         :code:`GET /api/services`
         """
         data = self.request("services")
-        domains = map(
-            lambda json: Domain.from_json(json, client=cast("Client", self)),
-            cast("tuple[dict[str, JSONType], ...]", data),
+        domains = (
+            Domain.from_json(datum, client=cast("Client", self))
+            for datum in cast("tuple[dict[str, JSONType], ...]", data)
         )
         return {domain.domain_id: domain for domain in domains}
 
@@ -380,9 +377,9 @@ class RawClient(RawBaseClient):
         """
         data = self.request("events")
         return tuple(
-            map(
-                lambda json: Event.from_json(json, client=cast("Client", self)),
-                cast("list[dict[str, JSONType]]", data),
+            (
+                Event.from_json(datum, client=cast("Client", self))
+                for datum in cast("list[dict[str, JSONType]]", data)
             ),
         )
 

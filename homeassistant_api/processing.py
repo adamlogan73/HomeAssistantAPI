@@ -50,7 +50,7 @@ class Processing:
 
         def register_processor(processor: ProcessorType) -> ProcessorType:
             if mimetype not in Processing._processors:
-                Processing._processors[mimetype] = tuple()
+                Processing._processors[mimetype] = ()
             Processing._processors[mimetype] += (processor,)
             return processor
 
@@ -71,9 +71,8 @@ class Processing:
             if not async_ ^ inspect.iscoroutinefunction(processor):
                 logger.debug("Using processor %r on %r", processor, self._response)
                 return processor(self._response)
-        raise ProcessorNotFoundError(
-            f"No response processor found for mimetype {mimetype!r}.",
-        )
+        msg = f"No response processor found for mimetype {mimetype!r}."
+        raise ProcessorNotFoundError(msg)
 
     def process(self) -> Any:
         """Validates the http status code before starting to process the repsonse content"""
@@ -86,9 +85,8 @@ class Processing:
             status_code = self._response.status_code
             content = self._response.content
         else:
-            raise TypeError(
-                f"Unsupported response type: {type(self._response).__name__}",
-            )
+            msg = f"Unsupported response type: {type(self._response).__name__}"
+            raise TypeError(msg)
         if self._decode_bytes and isinstance(content, bytes):
             content = content.decode()
         if status_code in (200, 201):
@@ -96,7 +94,7 @@ class Processing:
         if status_code == 400:
             raise RequestError(content, url=self._response.url)  # type: ignore
         if status_code == 401:
-            raise UnauthorizedError()
+            raise UnauthorizedError
         if status_code == 404:
             raise EndpointNotFoundError(self._response.url)  # type: ignore
         if status_code == 405:
@@ -117,9 +115,8 @@ def process_json(response: ResponseType) -> dict[str, JSONType]:
     try:
         return cast("dict[str, JSONType]", response.json())
     except (json.JSONDecodeError, simplejson.JSONDecodeError) as err:
-        raise MalformedDataError(
-            f"Home Assistant responded with non-json response: {response.text!r}",
-        ) from err
+        msg = f"Home Assistant responded with non-json response: {response.text!r}"
+        raise MalformedDataError(msg) from err
 
 
 @Processing.processor("text/plain")  # type: ignore[arg-type]
@@ -135,9 +132,8 @@ async def async_process_json(response: AsyncResponseType) -> dict[str, JSONType]
     try:
         return cast("dict[str, JSONType]", await response.json())
     except (json.JSONDecodeError, simplejson.JSONDecodeError) as err:
-        raise MalformedDataError(
-            f"Home Assistant responded with non-json response: {await response.text()!r}",
-        ) from err
+        msg = f"Home Assistant responded with non-json response: {await response.text()!r}"
+        raise MalformedDataError(msg) from err
 
 
 @Processing.processor("text/plain")  # type: ignore[arg-type]

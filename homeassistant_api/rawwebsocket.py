@@ -61,7 +61,8 @@ class RawWebsocketClient:
 
     def __exit__(self, exc_type, exc_value, traceback):
         if not self._conn:
-            raise ReceivingError("Connection is not open!")
+            msg = "Connection is not open!"
+            raise ReceivingError(msg)
         self._conn.__exit__(exc_type, exc_value, traceback)
         self._conn = None
 
@@ -74,13 +75,15 @@ class RawWebsocketClient:
         """Send a message to the websocket server."""
         logger.debug(f"Sending message: {data}")
         if self._conn is None:
-            raise ReceivingError("Connection is not open!")
+            msg = "Connection is not open!"
+            raise ReceivingError(msg)
         self._conn.send(json.dumps(data))
 
     def _recv(self) -> dict[str, JSONType]:
         """Receive a message from the websocket server."""
         if self._conn is None:
-            raise ReceivingError("Connection is not open!")
+            msg = "Connection is not open!"
+            raise ReceivingError(msg)
         _bytes = self._conn.recv()
         logger.debug("Received message: %s", _bytes)
         return cast("dict[str, JSONType]", json.loads(_bytes))
@@ -122,9 +125,8 @@ class RawWebsocketClient:
     def handle_recv(self, data: dict[str, JSONType]) -> None:
         """Handle a received message."""
         if "id" not in data:
-            raise ReceivingError(
-                "Received a message without an id outside the auth phase.",
-            )
+            msg = "Received a message without an id outside the auth phase."
+            raise ReceivingError(msg)
         self.check_success(data)
         self.parse_response(data)
 
@@ -144,7 +146,8 @@ class RawWebsocketClient:
             logger.info("Received event message %s", data["event"])
             self._event_responses[data_id].append(EventResponse.model_validate(data))
         else:
-            raise ReceivingError(f"Received unexpected message type: {data}")
+            msg = f"Received unexpected message type: {data}"
+            raise ReceivingError(msg)
 
     def recv(self, id: int) -> EventResponse | ResultResponse | PingResponse:
         """Receive a response to a message from the websocket server."""
@@ -170,7 +173,8 @@ class RawWebsocketClient:
             welcome = AuthRequired.model_validate(self._recv())
             logger.debug(f"Received welcome message: {welcome}")
         except ValidationError as e:
-            raise ResponseError("Unexpected response during authentication") from e
+            msg = "Unexpected response during authentication"
+            raise ResponseError(msg) from e
 
         # Send our authentication token
         self.send("auth", access_token=self.token, include_id=False)
@@ -184,10 +188,8 @@ class RawWebsocketClient:
             error_resp = AuthInvalid.model_validate(resp)
             raise UnauthorizedError(error_resp.message) from e
         except Exception as e:
-            raise ResponseError(
-                "Unexpected response during authentication",
-                resp["message"],
-            ) from e
+            msg = "Unexpected response during authentication"
+            raise ResponseError(msg, resp["message"]) from e
 
     def supported_features_phase(self) -> None:
         """Get the supported features from the websocket server."""

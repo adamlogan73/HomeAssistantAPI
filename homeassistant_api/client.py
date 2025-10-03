@@ -49,4 +49,5 @@ class Client(RawClient, RawAsyncClient):
                     **kwargs,
                 )
         else:
-            raise ValueError(f"Unknown scheme {parsed.scheme} in {api_url}")
+            msg = f"Unknown scheme {parsed.scheme} in {api_url}"
+            raise ValueError(msg)

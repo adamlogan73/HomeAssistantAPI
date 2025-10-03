@@ -48,7 +48,8 @@ class WebsocketClient(RawWebsocketClient):
         parsed = urlparse.urlparse(api_url)
 
         if parsed.scheme not in {"ws", "wss"}:
-            raise ValueError(f"Unknown scheme {parsed.scheme} in {api_url}")
+            msg = f"Unknown scheme {parsed.scheme} in {api_url}"
+            raise ValueError(msg)
         super().__init__(api_url, token)
         logger.debug(f"WebSocketClient initialized with api_url: {api_url}")
 
@@ -116,7 +117,8 @@ class WebsocketClient(RawWebsocketClient):
         for state in self.get_states():
             if state.entity_id == entity_id:
                 return state
-        raise ValueError(f"Entity {entity_id} not found!")
+        msg = f"Entity {entity_id} not found!"
+        raise ValueError(msg)
 
     def get_entities(self) -> dict[str, Group]:
         """
@@ -157,9 +159,8 @@ class WebsocketClient(RawWebsocketClient):
                 "Use keyword arguments to pass entity_id. "
                 "Or you can pass the group_id and slug instead"
             )
-            raise ValueError(
-                f"Neither group_id and slug or entity_id provided. {help_msg}",
-            )
+            msg = f"Neither group_id and slug or entity_id provided. {help_msg}"
+            raise ValueError(msg)
         split_group_id, split_slug = state.entity_id.split(".")
         group = Group(
             group_id=split_group_id,
@@ -177,12 +178,11 @@ class WebsocketClient(RawWebsocketClient):
         Sends command :code:`{"type": "get_services", ...}`.
         """
         resp = self.recv(self.send("get_services"))
-        domains = map(
-            lambda item: Domain.from_json(
-                {"domain": item[0], "services": item[1]},
-                client=self,
-            ),
-            cast("dict[str, JSONType]", cast("ResultResponse", resp).result).items(),
+        domains = (
+            Domain.from_json({"domain": item[0], "services": item[1]}, client=self)
+            for item in cast(
+                "dict[str, JSONType]", cast("ResultResponse", resp).result,
+            ).items()
         )
         return {domain.domain_id: domain for domain in domains}
 

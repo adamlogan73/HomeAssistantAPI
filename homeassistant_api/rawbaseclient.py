@@ -60,9 +60,8 @@ class RawBaseClient:
         if isinstance(headers, dict):
             headers.update(self._headers)
         else:
-            raise ValueError(
-                f"headers must be dict or dict subclass, not type {type(headers)!r}",
-            )
+            msg = f"headers must be dict or dict subclass, not type {type(headers)!r}"
+            raise ValueError(msg)
         return headers
 
     @staticmethod
