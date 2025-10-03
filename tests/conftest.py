@@ -1,12 +1,14 @@
 import asyncio
 import logging
 import os
-from typing import AsyncGenerator, Generator, Literal
+from collections.abc import AsyncGenerator
+from collections.abc import Generator
 
 import pytest
 import pytest_asyncio
 
-from homeassistant_api import Client, WebsocketClient
+from homeassistant_api import Client
+from homeassistant_api import WebsocketClient
 
 logging.basicConfig(level=logging.INFO)
 
@@ -45,7 +47,7 @@ def event_loop():
 
 @pytest_asyncio.fixture(name="async_cached_client", scope="session")
 async def setup_async_cached_client(
-    wait_for_server: Literal[None],
+    wait_for_server: None,
 ) -> AsyncGenerator[Client, None]:
     """Initializes the Client and enters an async cached session."""
     async with Client(
@@ -58,7 +60,7 @@ async def setup_async_cached_client(
 
 @pytest.fixture(name="websocket_client", scope="session")
 def setup_websocket_client(
-    wait_for_server: Literal[None],
+    wait_for_server: None,
 ) -> Generator[Client, None, None]:
     """Initializes the Client and enters a WebSocket session."""
     with WebsocketClient(

@@ -1,20 +1,22 @@
 """A module defining the responses we expect from the websocket API."""
 
-from typing import Any, Literal, Optional, Union
+from typing import Any
+from typing import Literal
 
 from homeassistant_api.utils import JSONType
 
-from .base import BaseModel, DatetimeIsoField
+from .base import BaseModel
+from .base import DatetimeIsoField
 from .states import Context
 
 __all__ = (
-    "AuthRequired",
-    "AuthOk",
     "AuthInvalid",
-    "PingResponse",
+    "AuthOk",
+    "AuthRequired",
     "ErrorResponse",
-    "ResultResponse",
     "EventResponse",
+    "PingResponse",
+    "ResultResponse",
 )
 
 
@@ -39,7 +41,7 @@ class PingResponse(BaseModel):
     id: int
     type: Literal["pong"]
     start: int  # added by the client, nanoseconds
-    end: Optional[int] = None  # added by the client, nanoseconds
+    end: int | None = None  # added by the client, nanoseconds
 
 
 class Error(BaseModel):
@@ -65,7 +67,7 @@ class ResultResponse(BaseModel):
     id: int
     success: Literal[True]
     type: Literal["result"]
-    result: Optional[Any]
+    result: Any | None
 
 
 class FiredEvent(BaseModel):
@@ -79,7 +81,7 @@ class FiredEvent(BaseModel):
     # LOCAL if Home Assistant (or the auth token we used) fired the event
 
     time_fired: DatetimeIsoField  # datetime.datetime
-    context: Optional[Context]
+    context: Context | None
 
 
 class TemplateEvent(BaseModel):
@@ -90,7 +92,7 @@ class TemplateEvent(BaseModel):
 class FiredTrigger(BaseModel):
     """A model to parse the `trigger` key of fired event websocket responses."""
 
-    context: Optional[Context]
+    context: Context | None
     variables: dict[str, JSONType]
 
 
@@ -99,4 +101,4 @@ class EventResponse(BaseModel):
 
     id: int
     type: Literal["event"]
-    event: Union[FiredEvent, FiredTrigger, TemplateEvent]
+    event: FiredEvent | FiredTrigger | TemplateEvent

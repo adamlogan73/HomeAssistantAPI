@@ -100,7 +100,7 @@ async def test_async_get_entity_histories(async_cached_client: Client) -> None:
 def test_get_rendered_template(cached_client: Client) -> None:
     """Tests the `POST /api/template` endpoint."""
     rendered_template = cached_client.get_rendered_template(
-        'The sun is {{ states("sun.sun").replace("_", " the ") }}.'
+        'The sun is {{ states("sun.sun").replace("_", " the ") }}.',
     )
     assert rendered_template in {
         "The sun is above the horizon.",
@@ -111,7 +111,7 @@ def test_get_rendered_template(cached_client: Client) -> None:
 async def test_async_get_rendered_template(async_cached_client: Client) -> None:
     """Tests the `POST /api/template` endpoint."""
     rendered_template = await async_cached_client.async_get_rendered_template(
-        'The sun is {{ states("sun.sun").replace("_", " the ") }}.'
+        'The sun is {{ states("sun.sun").replace("_", " the ") }}.',
     )
     assert rendered_template in {
         "The sun is above the horizon.",
@@ -122,7 +122,7 @@ async def test_async_get_rendered_template(async_cached_client: Client) -> None:
 def test_websocket_get_rendered_template(websocket_client: WebsocketClient) -> None:
     """Tests the `"type": "render_template"` websocket command."""
     rendered_template = websocket_client.get_rendered_template(
-        'The sun is {{ states("sun.sun").replace("_", " the ") }}.'
+        'The sun is {{ states("sun.sun").replace("_", " the ") }}.',
     )
     assert rendered_template in {
         "The sun is above the horizon.",
@@ -225,7 +225,8 @@ def test_websocket_trigger_service(websocket_client: WebsocketClient) -> None:
     notify = websocket_client.get_domain("notify")
     assert notify is not None
     resp = notify.persistent_notification(
-        message="Your API Test Suite just said hello!", title="Test Suite Notifcation"
+        message="Your API Test Suite just said hello!",
+        title="Test Suite Notifcation",
     )
     # Websocket API doesnt return changed states so we check for None
     assert resp is None
@@ -303,7 +304,7 @@ async def test_async_get_state(async_cached_client: Client) -> None:
 def test_set_state(cached_client: Client) -> None:
     """Tests the `POST /api/states/<entity_id>` endpoint."""
     state = cached_client.set_state(
-        State(state="beyond_our_solar_system", entity_id="sun.red_sun")
+        State(state="beyond_our_solar_system", entity_id="sun.red_sun"),
     )
     assert state.state == "beyond_our_solar_system"
 
@@ -311,7 +312,7 @@ def test_set_state(cached_client: Client) -> None:
 async def test_async_set_state(async_cached_client: Client) -> None:
     """Tests the `POST /api/states/<entity_id>` endpoint."""
     state = await async_cached_client.async_set_state(
-        State(state="beyond_our_solar_system", entity_id="sun.red_sun")
+        State(state="beyond_our_solar_system", entity_id="sun.red_sun"),
     )
     assert state.state == "beyond_our_solar_system"
 

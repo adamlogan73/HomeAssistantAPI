@@ -4,7 +4,8 @@ from datetime import datetime
 from typing import Annotated
 
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import ConfigDict, PlainSerializer
+from pydantic import ConfigDict
+from pydantic import PlainSerializer
 
 __all__ = (
     "BaseModel",

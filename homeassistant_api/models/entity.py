@@ -1,7 +1,9 @@
 """Module for Entity and entity Group data models"""
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING
+from typing import Any
+from typing import Optional
 
 from pydantic import Field
 
@@ -25,7 +27,7 @@ class Group(BaseModel):
         description="A unique string identifying different types/groups of entities.",
     )
     _client: "Client"
-    entities: Dict[str, "Entity"] = Field(
+    entities: dict[str, "Entity"] = Field(
         {},
         description="A dictionary of all entities belonging to the group "
         "indexed by their :code:`entity_id`.",
@@ -76,11 +78,11 @@ class Entity(BaseModel):
 
     def get_history(
         self,
-        start_timestamp: Optional[datetime] = None,
+        start_timestamp: datetime | None = None,
         # Defaults to 1 day before. https://developers.home-assistant.io/docs/api/rest/
-        end_timestamp: Optional[datetime] = None,
+        end_timestamp: datetime | None = None,
         significant_changes_only: bool = False,
-    ) -> Optional[History]:
+    ) -> History | None:
         """Gets the previous :py:class:`State`'s of the :py:class:`Entity`"""
         for history in self.group._client.get_entity_histories(
             entities=(self,),
@@ -106,11 +108,11 @@ class Entity(BaseModel):
 
     async def async_get_history(
         self,
-        start_timestamp: Optional[datetime] = None,
+        start_timestamp: datetime | None = None,
         # Defaults to 1 day before. https://developers.home-assistant.io/docs/api/rest/
-        end_timestamp: Optional[datetime] = None,
+        end_timestamp: datetime | None = None,
         significant_changes_only: bool = False,
-    ) -> Optional[History]:
+    ) -> History | None:
         """
         Gets the :py:class:`History` of previous :py:class:`State`'s of the :py:class:`Entity`.
         """

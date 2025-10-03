@@ -4,7 +4,7 @@ from homeassistant_api import Client
 
 api_url = "https://homeassistant.duckdns.org:8123/api"  # Something like http://localhost:8123/api
 token = os.getenv(
-    "HOMEASSISTANT_TOKEN"
+    "HOMEASSISTANT_TOKEN",
 )  # Used to aunthenticate yourself with homeassistant
 # See the documentation on how to obtain a Long Lived Access Token
 

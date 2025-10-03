@@ -3,26 +3,25 @@
 import json
 import os
 import unittest.mock
-from typing import Dict
 
 import aiohttp
 import pytest
 import requests
-from multidict import CIMultiDict, CIMultiDictProxy
+from multidict import CIMultiDict
+from multidict import CIMultiDictProxy
 
-from homeassistant_api import Client, Domain
-from homeassistant_api.errors import (
-    APIConfigurationError,
-    BadTemplateError,
-    EndpointNotFoundError,
-    InternalServerError,
-    MalformedDataError,
-    MethodNotAllowedError,
-    ProcessorNotFoundError,
-    ResponseError,
-    UnauthorizedError,
-    UnexpectedStatusCodeError,
-)
+from homeassistant_api import Client
+from homeassistant_api import Domain
+from homeassistant_api.errors import APIConfigurationError
+from homeassistant_api.errors import BadTemplateError
+from homeassistant_api.errors import EndpointNotFoundError
+from homeassistant_api.errors import InternalServerError
+from homeassistant_api.errors import MalformedDataError
+from homeassistant_api.errors import MethodNotAllowedError
+from homeassistant_api.errors import ProcessorNotFoundError
+from homeassistant_api.errors import ResponseError
+from homeassistant_api.errors import UnauthorizedError
+from homeassistant_api.errors import UnexpectedStatusCodeError
 from homeassistant_api.processing import Processing
 from homeassistant_api.utils import prepare_entity_id
 from homeassistant_api.websocket import WebsocketClient
@@ -35,11 +34,14 @@ def test_unauthorized() -> None:
 
 
 def test_websocket_unauthorized() -> None:
-    with pytest.raises(UnauthorizedError):
-        with WebsocketClient(
-            os.environ["HOMEASSISTANTAPI_WS_URL"], "lolthisisawrongtokenforsure"
-        ):
-            pass
+    with (
+        pytest.raises(UnauthorizedError),
+        WebsocketClient(
+            os.environ["HOMEASSISTANTAPI_WS_URL"],
+            "lolthisisawrongtokenforsure",
+        ),
+    ):
+        pass
 
 
 async def test_async_unauthorized() -> None:
@@ -117,13 +119,19 @@ def test_prepare_entity_id(cached_client: Client) -> None:
     """Tests all cases for :py:meth:`Client.prepare_entity_id`."""
     assert prepare_entity_id(group_id="person", slug="me") == "person.me"
     assert prepare_entity_id(entity_id="person.me") == "person.me"
-    assert "person.you" == prepare_entity_id(
-        group_id="person",
-        entity_id="person.you",
+    assert (
+        prepare_entity_id(
+            group_id="person",
+            entity_id="person.you",
+        )
+        == "person.you"
     )
-    assert "person.you" == prepare_entity_id(
-        slug="me",
-        entity_id="person.you",
+    assert (
+        prepare_entity_id(
+            slug="me",
+            entity_id="person.you",
+        )
+        == "person.you"
     )
     with pytest.raises(ValueError):
         prepare_entity_id(group_id="person")  # No slug
@@ -136,7 +144,7 @@ def test_prepare_entity_id(cached_client: Client) -> None:
 def make_response(
     status_code: int,
     content: str,
-    headers: Dict[str, str],
+    headers: dict[str, str],
 ) -> requests.Response:
     """Make a :py:class:`requests.Response` object from a status_code, headers, content."""
     return unittest.mock.Mock(
@@ -145,7 +153,7 @@ def make_response(
         text=content,
         headers=CIMultiDictProxy(CIMultiDict(headers)),
         json=unittest.mock.Mock(
-            side_effect=json.JSONDecodeError("This is a fake message", "", 1)
+            side_effect=json.JSONDecodeError("This is a fake message", "", 1),
         ),
     )
 
@@ -153,7 +161,7 @@ def make_response(
 def make_async_response(
     status_code: int,
     content: str,
-    headers: Dict[str, str],
+    headers: dict[str, str],
 ) -> aiohttp.ClientResponse:
     """Make an :py:class:`aiohttp.ClientResponse` object from a status_code, headers, content."""
     return unittest.mock.Mock(
@@ -163,7 +171,7 @@ def make_async_response(
         content=unittest.mock.Mock(_buffer=[content.encode()]),
         headers=CIMultiDictProxy(CIMultiDict(headers)),
         json=unittest.mock.AsyncMock(
-            side_effect=json.JSONDecodeError("This is a fake message", "", 1)
+            side_effect=json.JSONDecodeError("This is a fake message", "", 1),
         ),
     )
 
@@ -175,7 +183,7 @@ def test_exception_malformed_data_error() -> None:
                 200,
                 "{this is not valid json}",
                 {"Content-Type": "application/json"},
-            )
+            ),
         ).process()
 
 
@@ -186,7 +194,7 @@ async def test_async_exception_malformed_data_error() -> None:
                 200,
                 "{this is not valid json}",
                 {"Content-Type": "application/json"},
-            )
+            ),
         ).process()
 
 
@@ -198,7 +206,7 @@ def test_exception_internal_server_error() -> None:
 def test_exception_processor_not_found_error() -> None:
     with pytest.raises(ProcessorNotFoundError):
         Processing(
-            make_response(200, "", {"Content-Type": "this_type/does-not-exist"})
+            make_response(200, "", {"Content-Type": "this_type/does-not-exist"}),
         ).process()
 
 

@@ -1,26 +1,23 @@
 import json
 import logging
 import time
-from typing import Any, Optional, Union, cast
+from typing import Any
+from typing import cast
 
 import websockets.sync.client as ws
 from pydantic import ValidationError
 
-from homeassistant_api.errors import (
-    ReceivingError,
-    RequestError,
-    ResponseError,
-    UnauthorizedError,
-)
-from homeassistant_api.models.websocket import (
-    AuthInvalid,
-    AuthOk,
-    AuthRequired,
-    ErrorResponse,
-    EventResponse,
-    PingResponse,
-    ResultResponse,
-)
+from homeassistant_api.errors import ReceivingError
+from homeassistant_api.errors import RequestError
+from homeassistant_api.errors import ResponseError
+from homeassistant_api.errors import UnauthorizedError
+from homeassistant_api.models.websocket import AuthInvalid
+from homeassistant_api.models.websocket import AuthOk
+from homeassistant_api.models.websocket import AuthRequired
+from homeassistant_api.models.websocket import ErrorResponse
+from homeassistant_api.models.websocket import EventResponse
+from homeassistant_api.models.websocket import PingResponse
+from homeassistant_api.models.websocket import ResultResponse
 from homeassistant_api.utils import JSONType
 
 logger = logging.getLogger(__name__)
@@ -29,7 +26,7 @@ logger = logging.getLogger(__name__)
 class RawWebsocketClient:
     api_url: str
     token: str
-    _conn: Optional[ws.ClientConnection]
+    _conn: ws.ClientConnection | None
 
     def __init__(
         self,
@@ -41,12 +38,14 @@ class RawWebsocketClient:
         self._conn = None
 
         self._id_counter = 0
-        self._result_responses: dict[int, Optional[ResultResponse]] = (
-            {}
-        )  # id -> response
-        self._event_responses: dict[int, list[EventResponse]] = (
-            {}
-        )  # id -> [response, ...]
+        self._result_responses: dict[
+            int,
+            ResultResponse | None,
+        ] = {}  # id -> response
+        self._event_responses: dict[
+            int,
+            list[EventResponse],
+        ] = {}  # id -> [response, ...]
         self._ping_responses: dict[int, PingResponse] = {}  # id -> (sent, received)
 
     def __repr__(self) -> str:
@@ -84,7 +83,7 @@ class RawWebsocketClient:
             raise ReceivingError("Connection is not open!")
         _bytes = self._conn.recv()
         logger.debug("Received message: %s", _bytes)
-        return cast(dict[str, JSONType], json.loads(_bytes))
+        return cast("dict[str, JSONType]", json.loads(_bytes))
 
     def send(self, type: str, include_id: bool = True, **data: Any) -> int:
         """
@@ -124,13 +123,13 @@ class RawWebsocketClient:
         """Handle a received message."""
         if "id" not in data:
             raise ReceivingError(
-                "Received a message without an id outside the auth phase."
+                "Received a message without an id outside the auth phase.",
             )
         self.check_success(data)
         self.parse_response(data)
 
     def parse_response(self, data: dict[str, JSONType]) -> None:
-        data_id = cast(int, data["id"])
+        data_id = cast("int", data["id"])
         if data.get("type") == "pong":
             logger.info("Received pong message")
             self._ping_responses[data_id].end = time.perf_counter_ns()
@@ -147,13 +146,13 @@ class RawWebsocketClient:
         else:
             raise ReceivingError(f"Received unexpected message type: {data}")
 
-    def recv(self, id: int) -> Union[EventResponse, ResultResponse, PingResponse]:
+    def recv(self, id: int) -> EventResponse | ResultResponse | PingResponse:
         """Receive a response to a message from the websocket server."""
         while True:
             ## have we received a message with the id we're looking for?
             if self._result_responses.get(id) is not None:
-                return cast(dict[int, ResultResponse], self._result_responses).pop(
-                    id
+                return cast("dict[int, ResultResponse]", self._result_responses).pop(
+                    id,
                 )  # ughhh why can't mypy figure this out
             if self._event_responses.get(id, []):
                 return self._event_responses[id].pop(0)
@@ -186,7 +185,8 @@ class RawWebsocketClient:
             raise UnauthorizedError(error_resp.message) from e
         except Exception as e:
             raise ResponseError(
-                "Unexpected response during authentication", resp["message"]
+                "Unexpected response during authentication",
+                resp["message"],
             ) from e
 
     def supported_features_phase(self) -> None:
@@ -197,12 +197,12 @@ class RawWebsocketClient:
                 features={
                     # "coalesce_messages": 42, # including this key sets it to True
                 },
-            )
+            ),
         )
-        assert cast(ResultResponse, resp).result is None
+        assert cast("ResultResponse", resp).result is None
 
     def ping_latency(self) -> float:
         """Get the latency (in milliseconds) of the connection by sending a ping message."""
-        pong = cast(PingResponse, self.recv(self.send("ping")))
+        pong = cast("PingResponse", self.recv(self.send("ping")))
         assert pong.end is not None
         return (pong.end - pong.start) / 1_000_000

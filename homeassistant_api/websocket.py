@@ -1,18 +1,21 @@
 import contextlib
 import logging
 import urllib.parse as urlparse
-from typing import Dict, Generator, Optional, Tuple, Union, cast
+from collections.abc import Generator
+from typing import cast
 
-from homeassistant_api.models import Domain, Entity, Group, State
+from homeassistant_api.models import Domain
+from homeassistant_api.models import Entity
+from homeassistant_api.models import Group
+from homeassistant_api.models import State
 from homeassistant_api.models.states import Context
-from homeassistant_api.models.websocket import (
-    EventResponse,
-    FiredEvent,
-    FiredTrigger,
-    ResultResponse,
-    TemplateEvent,
-)
-from homeassistant_api.utils import JSONType, prepare_entity_id
+from homeassistant_api.models.websocket import EventResponse
+from homeassistant_api.models.websocket import FiredEvent
+from homeassistant_api.models.websocket import FiredTrigger
+from homeassistant_api.models.websocket import ResultResponse
+from homeassistant_api.models.websocket import TemplateEvent
+from homeassistant_api.utils import JSONType
+from homeassistant_api.utils import prepare_entity_id
 
 from .rawwebsocket import RawWebsocketClient
 
@@ -58,10 +61,10 @@ class WebsocketClient(RawWebsocketClient):
         """
         id = self.send("render_template", template=template, report_errors=True)
         first = self.recv(id)
-        assert cast(ResultResponse, first).result is None
+        assert cast("ResultResponse", first).result is None
         second = self.recv(id)
         self._unsubscribe(id)
-        return cast(TemplateEvent, cast(EventResponse, second).event).result
+        return cast("TemplateEvent", cast("EventResponse", second).event).result
 
     def get_config(self) -> dict[str, JSONType]:
         """
@@ -70,14 +73,14 @@ class WebsocketClient(RawWebsocketClient):
         Sends command :code:`{"type": "get_config", ...}`.
         """
         return cast(
-            dict[str, JSONType],
+            "dict[str, JSONType]",
             cast(
-                ResultResponse,
+                "ResultResponse",
                 self.recv(self.send("get_config")),
             ).result,
         )
 
-    def get_states(self) -> Tuple[State, ...]:
+    def get_states(self) -> tuple[State, ...]:
         """
         Get a list of states.
 
@@ -86,17 +89,17 @@ class WebsocketClient(RawWebsocketClient):
         return tuple(
             State.from_json(state)
             for state in cast(
-                list[dict[str, JSONType]],
-                cast(ResultResponse, self.recv(self.send("get_states"))).result,
+                "list[dict[str, JSONType]]",
+                cast("ResultResponse", self.recv(self.send("get_states"))).result,
             )
         )
 
     def get_state(  # pylint: disable=duplicate-code
         self,
         *,
-        entity_id: Optional[str] = None,
-        group_id: Optional[str] = None,
-        slug: Optional[str] = None,
+        entity_id: str | None = None,
+        group_id: str | None = None,
+        slug: str | None = None,
     ) -> State:
         """
         Just calls the :py:meth:`get_states` method and filters the result.
@@ -115,12 +118,12 @@ class WebsocketClient(RawWebsocketClient):
                 return state
         raise ValueError(f"Entity {entity_id} not found!")
 
-    def get_entities(self) -> Dict[str, Group]:
+    def get_entities(self) -> dict[str, Group]:
         """
         Fetches all entities from the Websocket API and returns them as a dictionary of :py:class:`Group`'s.
         For example :code:`light.living_room` would be in the group :code:`light` (i.e. :code:`get_entities()["light"].living_room`).
         """
-        entities: Dict[str, Group] = {}
+        entities: dict[str, Group] = {}
         for state in self.get_states():
             group_id, entity_slug = state.entity_id.split(".")
             if group_id not in entities:
@@ -133,10 +136,10 @@ class WebsocketClient(RawWebsocketClient):
 
     def get_entity(
         self,
-        group_id: Optional[str] = None,
-        slug: Optional[str] = None,
-        entity_id: Optional[str] = None,
-    ) -> Optional[Entity]:
+        group_id: str | None = None,
+        slug: str | None = None,
+        entity_id: str | None = None,
+    ) -> Entity | None:
         """
         Returns an :py:class:`Entity` model for an :code:`entity_id`.
 
@@ -155,7 +158,7 @@ class WebsocketClient(RawWebsocketClient):
                 "Or you can pass the group_id and slug instead"
             )
             raise ValueError(
-                f"Neither group_id and slug or entity_id provided. {help_msg}"
+                f"Neither group_id and slug or entity_id provided. {help_msg}",
             )
         split_group_id, split_slug = state.entity_id.split(".")
         group = Group(
@@ -179,7 +182,7 @@ class WebsocketClient(RawWebsocketClient):
                 {"domain": item[0], "services": item[1]},
                 client=self,
             ),
-            cast(dict[str, JSONType], cast(ResultResponse, resp).result).items(),
+            cast("dict[str, JSONType]", cast("ResultResponse", resp).result).items(),
         )
         return {domain.domain_id: domain for domain in domains}
 
@@ -198,7 +201,7 @@ class WebsocketClient(RawWebsocketClient):
         self,
         domain: str,
         service: str,
-        entity_id: Optional[str] = None,
+        entity_id: str | None = None,
         **service_data,
     ) -> None:
         """
@@ -221,8 +224,8 @@ class WebsocketClient(RawWebsocketClient):
 
         assert (
             cast(
-                dict[str, JSONType],
-                cast(ResultResponse, data).result,
+                "dict[str, JSONType]",
+                cast("ResultResponse", data).result,
             ).get("response")
             is None
         )  # should always be None for services without a response
@@ -231,7 +234,7 @@ class WebsocketClient(RawWebsocketClient):
         self,
         domain: str,
         service: str,
-        entity_id: Optional[str] = None,
+        entity_id: str | None = None,
         **service_data,
     ) -> dict[str, JSONType]:
         """
@@ -250,14 +253,15 @@ class WebsocketClient(RawWebsocketClient):
 
         data = self.recv(self.send("call_service", include_id=True, **params))
 
-        return cast(dict[str, dict[str, JSONType]], cast(ResultResponse, data).result)[
-            "response"
-        ]
+        return cast(
+            "dict[str, dict[str, JSONType]]",
+            cast("ResultResponse", data).result,
+        )["response"]
 
     @contextlib.contextmanager
     def listen_events(
         self,
-        event_type: Optional[str] = None,
+        event_type: str | None = None,
     ) -> Generator[Generator[FiredEvent, None, None], None, None]:
         """
         Listen for all events of a certain type.
@@ -271,10 +275,10 @@ class WebsocketClient(RawWebsocketClient):
                     print(event)
         """
         subscription = self._subscribe_events(event_type)
-        yield cast(Generator[FiredEvent, None, None], self._wait_for(subscription))
+        yield cast("Generator[FiredEvent, None, None]", self._wait_for(subscription))
         self._unsubscribe(subscription)
 
-    def _subscribe_events(self, event_type: Optional[str]) -> int:
+    def _subscribe_events(self, event_type: str | None) -> int:
         """
         Subscribe to all events of a certain type.
 
@@ -286,7 +290,9 @@ class WebsocketClient(RawWebsocketClient):
 
     @contextlib.contextmanager
     def listen_trigger(
-        self, trigger: str, **trigger_fields
+        self,
+        trigger: str,
+        **trigger_fields,
     ) -> Generator[Generator[dict[str, JSONType], None, None], None, None]:
         """
         Listen to a Home Assistant trigger.
@@ -318,7 +324,7 @@ class WebsocketClient(RawWebsocketClient):
         yield (
             fired_trigger.variables
             for fired_trigger in cast(
-                Generator[FiredTrigger, None, None],
+                "Generator[FiredTrigger, None, None]",
                 self._wait_for(subscription),
             )
         )
@@ -332,22 +338,22 @@ class WebsocketClient(RawWebsocketClient):
         """
         return self.recv(
             self.send(
-                "subscribe_trigger", trigger={"platform": trigger, **trigger_fields}
-            )
+                "subscribe_trigger",
+                trigger={"platform": trigger, **trigger_fields},
+            ),
         ).id
 
     def _wait_for(
-        self, subscription_id: int
-    ) -> Generator[Union[FiredEvent, FiredTrigger], None, None]:
+        self,
+        subscription_id: int,
+    ) -> Generator[FiredEvent | FiredTrigger, None, None]:
         """
         An iterator that waits for events of a certain type.
         """
         while True:
             yield cast(
-                Union[
-                    FiredEvent, FiredTrigger
-                ],  # we can cast this because TemplateEvent is only used for rendering templates
-                cast(EventResponse, self.recv(subscription_id)).event,
+                "FiredEvent | FiredTrigger",  # we can cast this because TemplateEvent is only used for rendering templates
+                cast("EventResponse", self.recv(subscription_id)).event,
             )
 
     def _unsubscribe(self, subcription_id: int) -> None:
@@ -357,7 +363,7 @@ class WebsocketClient(RawWebsocketClient):
         Sends command :code:`{"type": "unsubscribe_events", ...}`.
         """
         resp = self.recv(self.send("unsubscribe_events", subscription=subcription_id))
-        assert cast(ResultResponse, resp).result is None
+        assert cast("ResultResponse", resp).result is None
         self._event_responses.pop(subcription_id)
 
     def fire_event(self, event_type: str, **event_data) -> Context:
@@ -371,10 +377,10 @@ class WebsocketClient(RawWebsocketClient):
             params["event_data"] = event_data
         return Context.from_json(
             cast(
-                dict[str, dict[str, JSONType]],
+                "dict[str, dict[str, JSONType]]",
                 cast(
-                    ResultResponse,
+                    "ResultResponse",
                     self.recv(self.send("fire_event", include_id=True, **params)),
                 ).result,
-            )["context"]
+            )["context"],
         )

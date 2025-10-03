@@ -3,7 +3,8 @@ import os
 import aiohttp_client_cache.session
 import requests_cache
 
-from homeassistant_api import Client, WebsocketClient
+from homeassistant_api import Client
+from homeassistant_api import WebsocketClient
 
 
 def test_custom_cached_session() -> None:

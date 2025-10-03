@@ -1,12 +1,14 @@
 import os
 import re
-from typing import TYPE_CHECKING, Optional, Union  # noqa: F401
+from typing import TYPE_CHECKING
+from typing import Optional  # noqa: F401
 
 from typing_extensions import TypeAliasType
 
 if TYPE_CHECKING or os.getenv("DOCUMENTATION_MODE") != "true":
     JSONType = TypeAliasType(
-        "JSONType", "Optional[Union[int, float, str, bool, list[JSONType], dict[str, JSONType]]]"
+        "JSONType",
+        "int | float | str | bool | list[JSONType] | dict[str, JSONType] | None",
     )
 else:
     JSONType = type("JSONType", (object,), {})
@@ -22,9 +24,9 @@ def format_entity_id(entity_id: str) -> str:
 
 def prepare_entity_id(
     *,
-    group_id: Optional[str] = None,
-    slug: Optional[str] = None,
-    entity_id: Optional[str] = None,
+    group_id: str | None = None,
+    slug: str | None = None,
+    entity_id: str | None = None,
 ) -> str:
     """
     Combines optional :code:`group` and :code:`slug` into an :code:`entity_id` if provided.
@@ -34,7 +36,7 @@ def prepare_entity_id(
         raise ValueError(
             "To use group or slug you need to pass both, not just one. "
             "Otherwise pass entity_id. "
-            "Also make sure you are using keyword arguments."
+            "Also make sure you are using keyword arguments.",
         )
     if group_id is not None and slug is not None:
         entity_id = f"{group_id}.{slug}"

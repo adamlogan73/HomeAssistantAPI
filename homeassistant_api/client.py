@@ -34,11 +34,19 @@ class Client(RawClient, RawAsyncClient):
         if parsed.scheme in {"http", "https"}:
             if use_async:
                 RawAsyncClient.__init__(
-                    self, api_url, token, verify_ssl=verify_ssl, **kwargs
+                    self,
+                    api_url,
+                    token,
+                    verify_ssl=verify_ssl,
+                    **kwargs,
                 )
             else:
                 RawClient.__init__(
-                    self, api_url, token, verify_ssl=verify_ssl, **kwargs
+                    self,
+                    api_url,
+                    token,
+                    verify_ssl=verify_ssl,
+                    **kwargs,
                 )
         else:
             raise ValueError(f"Unknown scheme {parsed.scheme} in {api_url}")

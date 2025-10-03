@@ -59,7 +59,7 @@ def test_get_event(cached_client: Client) -> None:
 
 async def test_async_get_event(async_cached_client: Client) -> None:
     event = await async_cached_client.async_get_event(
-        "my_favorite_candy_is_mike_and_ikes"
+        "my_favorite_candy_is_mike_and_ikes",
     )
     assert event is None
 
@@ -114,7 +114,8 @@ def test_entity_get_history_none(cached_client: Client) -> None:
     entity = cached_client.get_entity(group_id="sun", slug="red_sun")
     assert entity is not None
     history = entity.get_history(
-        start_timestamp=datetime(2015, 1, 1), end_timestamp=datetime(2020, 1, 1)
+        start_timestamp=datetime(2015, 1, 1),
+        end_timestamp=datetime(2020, 1, 1),
     )
     assert history is None
 
@@ -123,6 +124,7 @@ async def test_async_entity_get_history_none(async_cached_client: Client) -> Non
     entity = await async_cached_client.async_get_entity(group_id="sun", slug="red_sun")
     assert entity is not None
     history = await entity.async_get_history(
-        start_timestamp=datetime(2015, 1, 1), end_timestamp=datetime(2020, 1, 1)
+        start_timestamp=datetime(2015, 1, 1),
+        end_timestamp=datetime(2020, 1, 1),
     )
     assert history is None
