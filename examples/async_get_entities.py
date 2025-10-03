@@ -3,19 +3,25 @@ import os
 
 from homeassistant_api import Client
 
-url = os.getenv("HOMEASSISTANT_API_ENDPOINT")
-token = os.getenv("HOMEASSISTANT_API_TOKEN")
 
+def get_api_info_from_environment() -> tuple[str, str]:
+    # Something like http://localhost:8123/api
+    api_url = os.getenv("HOMEASSISTANT_API_URL")
+    # See the documentation on how to obtain a Long Lived Access Token
+    token = os.getenv("HOMEASSISTANT_API_TOKEN")
 
-async def main() -> None:
-    # Initialize main object
-    if url is None:
-        msg = "Must set HOMEASSISTANT_API_ENDPOINT env variable to continue"
+    if api_url is None:
+        msg = "Must set HOMEASSISTANT_API_URL env variable to continue"
         raise ValueError(msg)
     if token is None:
         msg = "Must set HOMEASSISTANT_API_TOKEN env variable to continue"
         raise ValueError(msg)
-    client = Client(url, token, use_async=True)
+    return api_url, token
+
+
+async def main() -> None:
+    api_url, token = get_api_info_from_environment()
+    client = Client(api_url, token, use_async=True)
     # Uses async context manager to ping the server and initialize caching.
     async with client:
         # All async methods are prefixed with `async_`.
@@ -23,5 +29,4 @@ async def main() -> None:
         print(data)  # noqa: T201
 
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
+asyncio.run(main())

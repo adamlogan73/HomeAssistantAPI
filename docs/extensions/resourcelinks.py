@@ -16,7 +16,7 @@ from sphinx.util.typing import RoleFunction
 
 
 def make_link_role(resource_links: dict[str, str]) -> RoleFunction:
-    def role(
+    def role(  # noqa: PLR0913
         typ: str,  # noqa: ARG001
         rawtext: str,  # noqa: ARG001
         text: str,

@@ -14,21 +14,24 @@
 import os
 import re
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.abspath("../"))
-sys.path.append(os.path.abspath("extensions"))
+sys.path.insert(0, os.path.abspath("../"))  # noqa: PTH100
+sys.path.append(os.path.abspath("extensions"))  # noqa: PTH100
 
 # -- Project information -----------------------------------------------------
 
 project = "Homeassistant API"
-copyright = "2023-2025, Nathan Larsen"  # pylint: disable=redefined-builtin
+copyright = "2023-2025, Nathan Larsen"  # pylint: disable=redefined-builtin  # noqa: A001
 author = "Nathan Larsen"
 
 # The full version, including alpha/beta/rc tags
-with open("../pyproject.toml") as f:
+with Path("../pyproject.toml").open() as f:
     pyproject = f.read()
     search_result = re.search('version = "(.+?)"', pyproject)
-    assert search_result is not None
+    if search_result is None:
+        msg = "Version not found in pyproject.toml"
+        raise ValueError(msg)
     release = version = search_result.group(1)
 
 # -- General configuration ---------------------------------------------------
