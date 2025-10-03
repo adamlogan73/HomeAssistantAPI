@@ -5,9 +5,8 @@ from typing import Optional
 
 from pydantic import Field
 
+from homeassistant_api.models.base import BaseModel
 from homeassistant_api.utils import JSONType
-
-from .base import BaseModel
 
 if TYPE_CHECKING:
     from homeassistant_api import Client

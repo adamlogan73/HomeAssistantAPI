@@ -33,6 +33,7 @@ from homeassistant_api.utils import prepare_entity_id
 if TYPE_CHECKING:
     from collections.abc import Generator
     from datetime import datetime
+    from types import TracebackType
 
     from homeassistant_api import Client
 else:
@@ -55,12 +56,12 @@ class RawClient(RawBaseClient):
 
     def __init__(
         self,
-        *args,
+        *args: Any,  # noqa: ANN401
         cache_session: Literal[False]
         | None
         | requests_cache.CachedSession = None,  # Explicitly disable cache with cache_session=False
         verify_ssl: bool = True,
-        **kwargs,
+        **kwargs: Any,  # noqa: ANN401
     ) -> None:
         RawBaseClient.__init__(self, *args, **kwargs)
         self.global_request_kwargs["verify"] = verify_ssl
@@ -81,7 +82,12 @@ class RawClient(RawBaseClient):
         self.check_api_running()
         return self
 
-    def __exit__(self, _, __, ___) -> None:
+    def __exit__(
+        self,
+        _: type[BaseException] | None,
+        __: BaseException | None,
+        ___: TracebackType | None,
+    ) -> None:
         logger.debug("Exiting requests session %r", self.cache_session)
         self.cache_session.close()
 
@@ -90,10 +96,10 @@ class RawClient(RawBaseClient):
         path: str,
         *,
         params: str = "",  # should be a string of query parameters from construct_params()
-        method="GET",
+        method: str = "GET",
         headers: dict[str, str] | None = None,
         decode_bytes: bool = True,
-        **kwargs,
+        **kwargs: Any,  # noqa: ANN401
     ) -> Any:
         """Base method for making requests to the api"""
         try:
@@ -115,7 +121,12 @@ class RawClient(RawBaseClient):
         return self.response_logic(response=resp, decode_bytes=decode_bytes)
 
     @classmethod
-    def response_logic(cls, response: ResponseType, decode_bytes: bool = True) -> Any:
+    def response_logic(
+        cls,
+        response: ResponseType,
+        *,
+        decode_bytes: bool = True,
+    ) -> Any:
         """Processes responses from the API and formats them"""
         return Processing(response=response, decode_bytes=decode_bytes).process()
 
@@ -136,8 +147,8 @@ class RawClient(RawBaseClient):
 
     def get_logbook_entries(
         self,
-        *args,
-        **kwargs,
+        *args: Any,  # noqa: ANN401
+        **kwargs: Any,  # noqa: ANN401
     ) -> Generator[LogbookEntry, None, None]:
         """
         Returns a list of logbook entries from homeassistant.
@@ -157,6 +168,7 @@ class RawClient(RawBaseClient):
         start_timestamp: datetime | None = None,
         # Defaults to 1 day before. https://developers.home-assistant.io/docs/api/rest/
         end_timestamp: datetime | None = None,
+        *,
         significant_changes_only: bool = False,
     ) -> Generator[History, None, None]:
         """
@@ -228,7 +240,7 @@ class RawClient(RawBaseClient):
                     group_id=group_id,
                     _client=self,  # type: ignore[arg-type]
                 )
-            entities[group_id]._add_entity(entity_slug, state)
+            entities[group_id].add_entity(entity_slug, state)
         return entities
 
     def get_entity(
@@ -257,7 +269,7 @@ class RawClient(RawBaseClient):
             group_id=split_group_id,
             _client=self,  # type: ignore[arg-type]
         )
-        group._add_entity(split_slug, state)
+        group.add_entity(split_slug, state)
         return group.get_entity(split_slug)
 
     # Services and domain methods
@@ -284,7 +296,7 @@ class RawClient(RawBaseClient):
         self,
         domain: str,
         service: str,
-        **service_data,
+        **service_data: dict[str, Any],
     ) -> tuple[State, ...]:
         """
         Tells Home Assistant to trigger a service, returns all states changed while in the process of being called.
@@ -301,7 +313,7 @@ class RawClient(RawBaseClient):
         self,
         domain: str,
         service: str,
-        **service_data,
+        **service_data: dict[str, Any],
     ) -> tuple[tuple[State, ...], dict[str, JSONType]]:
         """
         Tells Home Assistant to trigger a service, returns the response from the service call.
@@ -394,7 +406,7 @@ class RawClient(RawBaseClient):
                 return event
         return None
 
-    def fire_event(self, event_type: str, **event_data) -> str | None:
+    def fire_event(self, event_type: str, **event_data: dict[str, Any]) -> str | None:
         """
         Fires a given event_type within homeassistant. Must be an existing event_type.
         `POST /api/events/<event_type>`

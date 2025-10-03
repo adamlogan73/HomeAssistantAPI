@@ -2,8 +2,8 @@
 
 from pydantic import Field
 
-from .base import BaseModel
-from .base import DatetimeIsoField
+from homeassistant_api.models.base import BaseModel
+from homeassistant_api.models.base import DatetimeIsoField
 
 
 class LogbookEntry(BaseModel):

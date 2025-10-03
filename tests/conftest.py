@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -37,15 +36,7 @@ def setup_cached_client(wait_for_server) -> Generator[Client, None, None]:
         yield client
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Redefines the event loop with a broader scope."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest_asyncio.fixture(name="async_cached_client", scope="session")
+@pytest_asyncio.fixture(name="async_cached_client")
 async def setup_async_cached_client(
     wait_for_server: None,
 ) -> AsyncGenerator[Client, None]:

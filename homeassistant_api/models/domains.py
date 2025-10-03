@@ -5,6 +5,7 @@ from __future__ import annotations
 import gc
 import inspect
 from enum import Enum
+from types import FrameType
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import cast
@@ -12,17 +13,15 @@ from typing import cast
 from pydantic import Field
 
 from homeassistant_api.errors import RequestError
+from homeassistant_api.models.base import BaseModel
 from homeassistant_api.utils import JSONType  # noqa: TC001
-
-from .base import BaseModel
 
 if TYPE_CHECKING:
     from collections.abc import Coroutine
 
     from homeassistant_api import Client
     from homeassistant_api import WebsocketClient
-
-    from .states import State
+    from homeassistant_api.models.states import State
 
 
 class Domain(BaseModel):
@@ -44,12 +43,16 @@ class Domain(BaseModel):
     domain_id: str = Field(
         ...,
         description="The name of the domain that services belong to. "
-        "(e.g. :code:`frontend` in :code:`frontend.reload_themes`",
+        "(e.g. :code:`frontewand` in :code:`frontend.reload_themes`",
     )
     services: dict[str, Service] = Field(
         {},
         description="A dictionary of all services belonging to the domain indexed by their names",
     )
+
+    @property
+    def client(self) -> Client | WebsocketClient:
+        return self._client
 
     @classmethod
     def from_json(
@@ -63,14 +66,15 @@ class Domain(BaseModel):
             raise ValueError(msg)
         domain = cls(domain_id=cast("str", json.get("domain")), _client=client)
         services = cast("dict[str, dict[str, JSONType]]", json.get("services"))
-        assert isinstance(services, dict)
+        if not isinstance(services, dict):
+            msg = "Service data is malformed."
+            raise ValueError(msg)
         for service_id, data in services.items():
             domain._add_service(service_id, **data)
         return domain
 
     def _add_service(self, service_id: str, **data) -> None:
         """Registers services into a domain to be used or accessed. Used internally."""
-        # raise ValueError(data)
         self.services.update(
             {
                 service_id: Service(
@@ -124,7 +128,7 @@ class CropOptions(BaseModel):
     round: bool
     type: str | None = None  # "image/jpeg" / "image/png"
     quality: int | float | None = None
-    aspectRatio: int | float | None = None
+    aspectRatio: int | float | None = None  # noqa: N815
 
 
 class SelectBoxOptionImage(BaseModel):
@@ -169,7 +173,7 @@ class ServiceFieldSelectorTextType(str, Enum):
 
 # Selectors
 class ServiceFieldSelectorAction(BaseModel):
-    optionsInSidebar: bool | None = None
+    optionsInSidebar: bool | None = None  # noqa: N815
 
 
 class ServiceFieldSelectorAddon(BaseModel):
@@ -232,7 +236,7 @@ class ServiceFieldSelectorColorTemp(BaseModel):
 
 
 class ServiceFieldSelectorCondition(BaseModel):
-    optionsInSidebar: bool | None = None
+    optionsInSidebar: bool | None = None  # noqa: N815
 
 
 class ServiceFieldSelectorConfigEntry(BaseModel):
@@ -315,7 +319,7 @@ class ServiceFieldSelectorFile(BaseModel):
 
 class ServiceFieldSelectorIcon(BaseModel):
     placeholder: str | None = None
-    fallbackPath: str | None = None
+    fallbackPath: str | None = None  # noqa: N815
 
 
 class ServiceFieldSelectorImage(BaseModel):
@@ -462,7 +466,7 @@ class ServiceFieldSelectorTTS(BaseModel):
 
 
 class ServiceFieldSelectorTTSVoice(BaseModel):
-    engineId: str | None = None
+    engineId: str | None = None  # noqa: N815
     language: str | None = None
 
 
@@ -588,13 +592,13 @@ class Service(BaseModel):
     ):
         """Triggers the service associated with this object."""
         try:
-            return self.domain._client.trigger_service_with_response(
+            return self.domain.client.trigger_service_with_response(
                 self.domain.domain_id,
                 self.service_id,
                 **service_data,
             )
         except RequestError:
-            return self.domain._client.trigger_service(
+            return self.domain.client.trigger_service(
                 self.domain.domain_id,
                 self.service_id,
                 **service_data,
@@ -605,19 +609,14 @@ class Service(BaseModel):
         **service_data,
     ) -> tuple[State, ...] | tuple[tuple[State, ...], dict[str, JSONType]]:
         """Triggers the service associated with this object."""
-        from homeassistant_api import WebsocketClient  # prevent circular import
-
-        if isinstance(self.domain._client, WebsocketClient):
-            msg = "WebsocketClient does not support async/await syntax."
-            raise NotImplementedError(msg)
         try:
-            return await self.domain._client.async_trigger_service_with_response(
+            return await self.domain.client.async_trigger_service_with_response(
                 self.domain.domain_id,
                 self.service_id,
                 **service_data,
             )
         except RequestError:
-            return await self.domain._client.async_trigger_service(
+            return await self.domain.client.async_trigger_service(
                 self.domain.domain_id,
                 self.service_id,
                 **service_data,
@@ -640,8 +639,14 @@ class Service(BaseModel):
         """
         Triggers the service associated with this object.
         """
-        assert (frame := inspect.currentframe()) is not None
-        assert (parent_frame := frame.f_back) is not None
+        frame: FrameType | None | bool = inspect.currentframe()
+        if not isinstance(frame, FrameType):
+            msg = "Unable to inspect current frame"
+            raise ReferenceError(msg)
+        parent_frame = frame.f_back
+        if not isinstance(parent_frame, FrameType):
+            msg = "Unable to inspect parent frame"
+            raise ReferenceError(msg)
         try:
             if inspect.iscoroutinefunction(
                 caller := gc.get_referrers(parent_frame.f_code)[0],

@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime
+from datetime import timezone
 
 from homeassistant_api import Client
 from homeassistant_api.models.events import Event
@@ -36,8 +37,8 @@ def test_get_logbook_entries(cached_client: Client) -> None:
     """Tests the `GET /api/logbook/<timestamp>` endpoint."""
     for entry in cached_client.get_logbook_entries(
         filter_entities="sun.sun",
-        start_timestamp=datetime(2020, 1, 1),
-        end_timestamp=datetime.now(),
+        start_timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        end_timestamp=datetime.now(tz=timezone.utc),
     ):
         assert entry
 
@@ -46,8 +47,8 @@ async def test_async_get_logbook_entries(async_cached_client: Client) -> None:
     """Tests the `GET /api/logbook/<timestamp>` endpoint."""
     async for entry in async_cached_client.async_get_logbook_entries(
         filter_entities="sun.sun",
-        start_timestamp=datetime(2020, 1, 1),
-        end_timestamp=datetime.now(),
+        start_timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        end_timestamp=datetime.now(tz=timezone.utc),
     ):
         assert entry
 
@@ -68,8 +69,8 @@ def test_get_entity_histories(cached_client: Client) -> None:
     assert sun is not None
     for history in cached_client.get_entity_histories(
         (sun,),
-        end_timestamp=datetime.now(),  # test for microsecond truncation
-        start_timestamp=datetime(2020, 1, 1),
+        end_timestamp=datetime.now(tz=timezone.utc),  # test for microsecond truncation
+        start_timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
         significant_changes_only=True,
     ):
         for state in history.states:
@@ -337,13 +338,16 @@ async def test_async_get_events(async_cached_client: Client) -> None:
 
 def test_fire_event(cached_client: Client) -> None:
     """Tests the `POST /api/events/<event_type>` endpoint."""
-    data = cached_client.fire_event("my_new_event", parameter="123")
+    data = cached_client.fire_event("my_new_event", event_data={"parameter": "123"})
     assert data == "Event my_new_event fired."
 
 
 async def test_async_fire_event(async_cached_client: Client) -> None:
     """Tests the `POST /api/events/<event_type>` endpoint."""
-    data = await async_cached_client.async_fire_event("my_new_event", parameter="123")
+    data = await async_cached_client.async_fire_event(
+        "my_new_event",
+        event_data={"parameter": "123"},
+    )
     assert data == "Event my_new_event fired."
 
 

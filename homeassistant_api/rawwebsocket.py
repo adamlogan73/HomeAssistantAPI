@@ -88,7 +88,7 @@ class RawWebsocketClient:
         logger.debug("Received message: %s", _bytes)
         return cast("dict[str, JSONType]", json.loads(_bytes))
 
-    def send(self, type: str, include_id: bool = True, **data: Any) -> int:
+    def send(self, type_: str, *, include_id: bool = True, **data: Any) -> int:
         """
         Send a command message to the websocket server and wait for a "result" response.
 
@@ -97,11 +97,13 @@ class RawWebsocketClient:
         if include_id:  # auth messages don't have an id
             data["id"] = self._request_id()
 
-        data["type"] = type
+        data["type"] = type_
         self._send(data)
 
         if "id" in data:
-            assert isinstance(data["id"], int)
+            if not isinstance(data["id"], int):
+                msg = "id should be an int"
+                raise ValueError(msg)
             if data["type"] == "ping":
                 self._ping_responses[data["id"]] = PingResponse(
                     start=time.perf_counter_ns(),
@@ -149,19 +151,19 @@ class RawWebsocketClient:
             msg = f"Received unexpected message type: {data}"
             raise ReceivingError(msg)
 
-    def recv(self, id: int) -> EventResponse | ResultResponse | PingResponse:
+    def recv(self, id_: int) -> EventResponse | ResultResponse | PingResponse:
         """Receive a response to a message from the websocket server."""
         while True:
             ## have we received a message with the id we're looking for?
-            if self._result_responses.get(id) is not None:
+            if self._result_responses.get(id_) is not None:
                 return cast("dict[int, ResultResponse]", self._result_responses).pop(
-                    id,
+                    id_,
                 )  # ughhh why can't mypy figure this out
-            if self._event_responses.get(id, []):
-                return self._event_responses[id].pop(0)
-            if self._ping_responses.get(id) is not None:
-                if self._ping_responses[id].end is not None:
-                    return self._ping_responses.pop(id)
+            if self._event_responses.get(id_, []):
+                return self._event_responses[id_].pop(0)
+            if self._ping_responses.get(id_) is not None:
+                if self._ping_responses[id_].end is not None:
+                    return self._ping_responses.pop(id_)
 
             ## if not, keep receiving messages until we do
             self.handle_recv(self._recv())
@@ -201,10 +203,14 @@ class RawWebsocketClient:
                 },
             ),
         )
-        assert cast("ResultResponse", resp).result is None
+        if cast("ResultResponse", resp).result is not None:
+            msg = "Supported Features response should be None"
+            raise ValueError(msg)
 
     def ping_latency(self) -> float:
         """Get the latency (in milliseconds) of the connection by sending a ping message."""
         pong = cast("PingResponse", self.recv(self.send("ping")))
-        assert pong.end is not None
+        if pong.end is None:
+            msg = "Ping response not received."
+            raise ResponseError(msg)
         return (pong.end - pong.start) / 1_000_000

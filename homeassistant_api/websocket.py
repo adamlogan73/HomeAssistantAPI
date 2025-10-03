@@ -2,6 +2,7 @@ import contextlib
 import logging
 import urllib.parse as urlparse
 from collections.abc import Generator
+from typing import Any
 from typing import cast
 
 from homeassistant_api.models import Domain
@@ -14,10 +15,9 @@ from homeassistant_api.models.websocket import FiredEvent
 from homeassistant_api.models.websocket import FiredTrigger
 from homeassistant_api.models.websocket import ResultResponse
 from homeassistant_api.models.websocket import TemplateEvent
+from homeassistant_api.rawwebsocket import RawWebsocketClient
 from homeassistant_api.utils import JSONType
 from homeassistant_api.utils import prepare_entity_id
-
-from .rawwebsocket import RawWebsocketClient
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +60,13 @@ class WebsocketClient(RawWebsocketClient):
 
         Sends command :code:`{"type": "render_template", ...}`.
         """
-        id = self.send("render_template", template=template, report_errors=True)
-        first = self.recv(id)
-        assert cast("ResultResponse", first).result is None
-        second = self.recv(id)
-        self._unsubscribe(id)
+        id_ = self.send("render_template", template=template, report_errors=True)
+        first = self.recv(id_)
+        if cast("ResultResponse", first).result is not None:
+            msg = "Result should be None"
+            raise ValueError(msg)
+        second = self.recv(id_)
+        self._unsubscribe(id_)
         return cast("TemplateEvent", cast("EventResponse", second).event).result
 
     def get_config(self) -> dict[str, JSONType]:
@@ -133,7 +135,7 @@ class WebsocketClient(RawWebsocketClient):
                     group_id=group_id,
                     _client=self,  # type: ignore[arg-type]
                 )
-            entities[group_id]._add_entity(entity_slug, state)
+            entities[group_id].add_entity(entity_slug, state)
         return entities
 
     def get_entity(
@@ -166,7 +168,7 @@ class WebsocketClient(RawWebsocketClient):
             group_id=split_group_id,
             _client=self,  # type: ignore[arg-type]
         )
-        group._add_entity(split_slug, state)
+        group.add_entity(split_slug, state)
         return group.get_entity(split_slug)
 
     def get_domains(self) -> dict[str, Domain]:
@@ -223,13 +225,14 @@ class WebsocketClient(RawWebsocketClient):
 
         # TODO: handle data["result"]["context"] ?
 
-        assert (
-            cast(
-                "dict[str, JSONType]",
-                cast("ResultResponse", data).result,
-            ).get("response")
-            is None
-        )  # should always be None for services without a response
+        if (
+            cast("dict[str, JSONType]", cast("ResultResponse", data).result).get(
+                "response",
+            )
+            is not None
+        ):  # should always be None for services without a response
+            msg = "data should always be None for services without a response"
+            raise ValueError(msg)
 
     def trigger_service_with_response(
         self,
@@ -364,7 +367,9 @@ class WebsocketClient(RawWebsocketClient):
         Sends command :code:`{"type": "unsubscribe_events", ...}`.
         """
         resp = self.recv(self.send("unsubscribe_events", subscription=subcription_id))
-        assert cast("ResultResponse", resp).result is None
+        if cast("ResultResponse", resp).result is not None:
+            msg = "result should be None"
+            raise ValueError(msg)
         self._event_responses.pop(subcription_id)
 
     def fire_event(self, event_type: str, **event_data) -> Context:
@@ -385,3 +390,15 @@ class WebsocketClient(RawWebsocketClient):
                 ).result,
             )["context"],
         )
+
+    async def async_trigger_service_with_response(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        msg = "WebsocketClient does not support async/await syntax."
+        raise NotImplementedError(msg)
+
+    async def async_trigger_service(self, *args: Any, **kwargs: Any) -> Any:
+        msg = "WebsocketClient does not support async/await syntax."
+        raise NotImplementedError(msg)

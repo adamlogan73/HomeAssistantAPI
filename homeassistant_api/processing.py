@@ -4,9 +4,9 @@ import inspect
 import json
 import logging
 from collections.abc import Callable
+from http import HTTPStatus
 from typing import Any
 from typing import ClassVar
-from typing import Union
 from typing import cast
 
 import simplejson
@@ -28,9 +28,9 @@ from homeassistant_api.utils import JSONType
 logger = logging.getLogger(__name__)
 
 
-AsyncResponseType = Union[AsyncCachedResponse, ClientResponse]
-ResponseType = Union[Response, CachedResponse]
-AllResponseType = Union[AsyncCachedResponse, ClientResponse, Response, CachedResponse]
+AsyncResponseType = AsyncCachedResponse | ClientResponse
+ResponseType = Response | CachedResponse
+AllResponseType = AsyncCachedResponse | ClientResponse | Response | CachedResponse
 ProcessorType = Callable[[AllResponseType], Any]
 
 
@@ -40,7 +40,7 @@ class Processing:
     _response: AllResponseType
     _processors: ClassVar[dict[str, tuple[ProcessorType, ...]]] = {}
 
-    def __init__(self, response: AllResponseType, decode_bytes: bool = True) -> None:
+    def __init__(self, response: AllResponseType, *, decode_bytes: bool = True) -> None:
         self._response = response
         self._decode_bytes = decode_bytes
 
@@ -74,38 +74,50 @@ class Processing:
         msg = f"No response processor found for mimetype {mimetype!r}."
         raise ProcessorNotFoundError(msg)
 
-    def process(self) -> Any:
+    def process(self) -> Any:  # noqa: C901
         """Validates the http status code before starting to process the repsonse content"""
-        content: str | bytes
-        if async_ := isinstance(self._response, (ClientResponse, AsyncCachedResponse)):
+        raw_content: str | bytes
+        sync_response: bool = False
+        if async_response := isinstance(
+            self._response,
+            (ClientResponse, AsyncCachedResponse),
+        ):
             status_code = self._response.status
             _buffer = self._response.content._buffer
-            content = b"" if not _buffer else _buffer[0]
-        elif isinstance(self._response, (Response, CachedResponse)):
+            raw_content = b"" if not _buffer else _buffer[0]
+        elif sync_response := isinstance(self._response, (Response, CachedResponse)):
             status_code = self._response.status_code
-            content = self._response.content
+            raw_content = self._response.content
         else:
             msg = f"Unsupported response type: {type(self._response).__name__}"
             raise TypeError(msg)
-        if self._decode_bytes and isinstance(content, bytes):
-            content = content.decode()
-        if status_code in (200, 201):
-            return self.process_content(async_=async_)
-        if status_code == 400:
-            raise RequestError(content, url=self._response.url)  # type: ignore
-        if status_code == 401:
+
+        try:
+            status = HTTPStatus(status_code)
+        except ValueError:
+            raise UnexpectedStatusCodeError(status_code) from None
+
+        if self._decode_bytes and isinstance(raw_content, bytes):
+            content = raw_content.decode()
+        else:
+            content = str(raw_content)
+        if status in (HTTPStatus.OK, HTTPStatus.CREATED):
+            return self.process_content(async_=async_response)
+        if status == HTTPStatus.BAD_REQUEST:
+            raise RequestError(content, url=str(self._response.url))
+        if status == HTTPStatus.UNAUTHORIZED:
             raise UnauthorizedError
-        if status_code == 404:
-            raise EndpointNotFoundError(self._response.url)  # type: ignore
-        if status_code == 405:
-            if isinstance(self._response, (Response, CachedResponse)):
-                method = self._response.request.method
+        if status == HTTPStatus.NOT_FOUND:
+            raise EndpointNotFoundError(str(self._response.url))
+        if status == HTTPStatus.METHOD_NOT_ALLOWED:
+            if sync_response:
+                method = self._response.request.method  # type: ignore[union-attr]
             else:
-                method = self._response.method
+                method = self._response.method  # type: ignore[union-attr]
             raise MethodNotAllowedError(cast("str", method))
-        if status_code >= 500:
-            raise InternalServerError(status_code, content)
-        raise UnexpectedStatusCodeError(status_code)
+        if status >= HTTPStatus.INTERNAL_SERVER_ERROR:
+            raise InternalServerError(status.value, content)
+        return None
 
 
 # List of default processors

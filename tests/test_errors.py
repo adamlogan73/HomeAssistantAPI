@@ -28,9 +28,11 @@ from homeassistant_api.websocket import WebsocketClient
 
 
 def test_unauthorized() -> None:
-    with pytest.raises(UnauthorizedError):
-        with Client(os.environ["HOMEASSISTANTAPI_URL"], "lolthisisawrongtokenforsure"):
-            pass
+    with (
+        pytest.raises(UnauthorizedError),
+        Client(os.environ["HOMEASSISTANTAPI_URL"], "lolthisisawrongtokenforsure"),
+    ):
+        pass
 
 
 def test_websocket_unauthorized() -> None:
@@ -115,24 +117,12 @@ async def test_async_invalid_template(async_cached_client: Client) -> None:
         await async_cached_client.async_get_rendered_template("{{ invalid_template lol")
 
 
-def test_prepare_entity_id(cached_client: Client) -> None:
+def test_prepare_entity_id() -> None:
     """Tests all cases for :py:meth:`Client.prepare_entity_id`."""
     assert prepare_entity_id(group_id="person", slug="me") == "person.me"
     assert prepare_entity_id(entity_id="person.me") == "person.me"
-    assert (
-        prepare_entity_id(
-            group_id="person",
-            entity_id="person.you",
-        )
-        == "person.you"
-    )
-    assert (
-        prepare_entity_id(
-            slug="me",
-            entity_id="person.you",
-        )
-        == "person.you"
-    )
+    assert prepare_entity_id(group_id="person", entity_id="person.you") == "person.you"
+    assert prepare_entity_id(slug="me", entity_id="person.you") == "person.you"
     with pytest.raises(ValueError):
         prepare_entity_id(group_id="person")  # No slug
     with pytest.raises(ValueError):
@@ -211,14 +201,14 @@ def test_exception_processor_not_found_error() -> None:
 
 
 def test_exception_api_config_error() -> None:
+    msg = "(Fake) Server has invalid configuration.yaml"
     with pytest.raises(APIConfigurationError):
-        msg = "(Fake) Server has invalid configuration.yaml"
         raise APIConfigurationError(msg)
 
 
 def test_exception_response_error() -> None:
+    msg = "(Fake) Server returned a problematic response."
     with pytest.raises(ResponseError):
-        msg = "(Fake) Server returned a problematic response."
         raise ResponseError(msg)
 
 
@@ -227,6 +217,6 @@ def test_exception_unexpected_status_code() -> None:
         Processing(make_response(0, "", {})).process()
 
 
-def test_unkown_scheme() -> None:
+def test_unknown_scheme() -> None:
     with pytest.raises(ValueError):
         Client("ftp://example.com", "token")

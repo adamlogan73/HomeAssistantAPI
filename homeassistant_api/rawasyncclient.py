@@ -13,22 +13,23 @@ from typing import cast
 
 import aiohttp
 import aiohttp_client_cache.session
+from typing_extensions import Self
 
-from .errors import BadTemplateError
-from .errors import RequestError
-from .errors import RequestTimeoutError
-from .models import Domain
-from .models import Entity
-from .models import Event
-from .models import Group
-from .models import History
-from .models import LogbookEntry
-from .models import State
-from .processing import AsyncResponseType
-from .processing import Processing
-from .rawbaseclient import RawBaseClient
-from .utils import JSONType
-from .utils import prepare_entity_id
+from homeassistant_api.errors import BadTemplateError
+from homeassistant_api.errors import RequestError
+from homeassistant_api.errors import RequestTimeoutError
+from homeassistant_api.models import Domain
+from homeassistant_api.models import Entity
+from homeassistant_api.models import Event
+from homeassistant_api.models import Group
+from homeassistant_api.models import History
+from homeassistant_api.models import LogbookEntry
+from homeassistant_api.models import State
+from homeassistant_api.processing import AsyncResponseType
+from homeassistant_api.processing import Processing
+from homeassistant_api.rawbaseclient import RawBaseClient
+from homeassistant_api.utils import JSONType
+from homeassistant_api.utils import prepare_entity_id
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -75,19 +76,26 @@ class RawAsyncClient(RawBaseClient):
                 ),
                 connector=connector,
             )
-        else:
+        elif isinstance(
+            async_cache_session,
+            aiohttp_client_cache.session.CachedSession,
+        ):
             self.async_cache_session = async_cache_session
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         logger.debug(
             "Entering cached async requests session %r",
             self.async_cache_session,
         )
         await self.async_cache_session.__aenter__()
-        await self.async_check_api_running()
+        try:
+            await self.async_check_api_running()
+        except Exception:
+            await self.async_cache_session.close()
+            raise
         return self
 
-    async def __aexit__(self, _, __, ___):
+    async def __aexit__(self, _, __, ___) -> None:
         logger.debug("Exiting async requests session %r", self.async_cache_session)
         await self.async_cache_session.close()
 
@@ -99,20 +107,20 @@ class RawAsyncClient(RawBaseClient):
         params: str = "",  # should be a string of query parameters from construct_params()
         method: str = "GET",
         headers: dict[str, str] | None = None,
-        **kwargs,
-    ) -> Any:
+        **kwargs: Any,  # noqa: ANN401
+    ) -> Any:  # noqa: ANN401
         """Base method for making requests to the api"""
+        if self.global_request_kwargs is not None:
+            kwargs.update(self.global_request_kwargs)
         try:
-            if self.global_request_kwargs is not None:
-                kwargs.update(self.global_request_kwargs)
-            return await self.async_response_logic(
-                await self.async_cache_session.request(
-                    method,
-                    self.endpoint(path) + f"?{params}" * bool(params),
-                    headers=self.prepare_headers(headers),
-                    **kwargs,
-                ),
-            )
+            async with self.async_cache_session.request(
+                method,
+                self.endpoint(path) + f"?{params}" * bool(params),
+                headers=self.prepare_headers(headers),
+                **kwargs,
+            ) as request:
+                return await self.async_response_logic(request)
+
         except asyncio.exceptions.TimeoutError as err:
             msg = f"Home Assistant did not respond in time (timeout: {kwargs.get('timeout', 300)} sec)"
             raise RequestTimeoutError(
@@ -121,7 +129,7 @@ class RawAsyncClient(RawBaseClient):
             ) from err
 
     @staticmethod
-    async def async_response_logic(response: AsyncResponseType) -> Any:
+    async def async_response_logic(response: AsyncResponseType) -> Any:  # noqa: ANN401
         """Processes custom mimetype content asyncronously."""
         return await Processing(response=response).process()
 
@@ -163,6 +171,7 @@ class RawAsyncClient(RawBaseClient):
         start_timestamp: datetime | None = None,
         # Defaults to 1 day before. https://developers.home-assistant.io/docs/api/rest/
         end_timestamp: datetime | None = None,
+        *,
         significant_changes_only: bool = False,
     ) -> AsyncGenerator[History, None]:
         """
@@ -232,7 +241,7 @@ class RawAsyncClient(RawBaseClient):
             group_id, entity_slug = state.entity_id.split(".")
             if group_id not in entities:
                 entities[group_id] = Group(group_id=group_id, _client=self)  # type: ignore[arg-type]
-            entities[group_id]._add_entity(entity_slug, state)
+            entities[group_id].add_entity(entity_slug, state)
         return entities
 
     async def async_get_entity(
@@ -258,7 +267,7 @@ class RawAsyncClient(RawBaseClient):
             raise ValueError(msg)
         group_id, entity_slug = state.entity_id.split(".")
         group = Group(group_id=group_id, _client=self)  # type: ignore[arg-type]
-        group._add_entity(entity_slug, state)
+        group.add_entity(entity_slug, state)
         return group.get_entity(entity_slug)
 
     # Services and domain methods
@@ -395,7 +404,7 @@ class RawAsyncClient(RawBaseClient):
                 return event
         return None
 
-    async def async_fire_event(self, event_type: str, **event_data: Any) -> str:
+    async def async_fire_event(self, event_type: str, **event_data: Any) -> str:  # noqa: ANN401
         """
         Fires a given event_type within homeassistant. Must be an existing event_type.
         :code:`POST /api/events/<event_type>`

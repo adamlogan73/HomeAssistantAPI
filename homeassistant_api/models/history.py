@@ -2,8 +2,8 @@
 
 from pydantic import Field
 
-from .base import BaseModel
-from .states import State
+from homeassistant_api.models.base import BaseModel
+from homeassistant_api.models.states import State
 
 
 class History(BaseModel):
@@ -16,7 +16,9 @@ class History(BaseModel):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        assert self.entity_id is not None
+        if self.entity_id is None:
+            msg = "Invalid entity_id"
+            raise ValueError(msg)
 
     @property
     def entity_id(self) -> str:

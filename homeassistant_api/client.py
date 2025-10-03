@@ -4,8 +4,8 @@ import logging
 import urllib.parse as urlparse
 from typing import Any
 
-from .rawasyncclient import RawAsyncClient
-from .rawclient import RawClient
+from homeassistant_api.rawasyncclient import RawAsyncClient
+from homeassistant_api.rawclient import RawClient
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +25,10 @@ class Client(RawClient, RawAsyncClient):
         self,
         api_url: str,
         token: str,
+        *,
         use_async: bool = False,
         verify_ssl: bool = True,
-        **kwargs: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> None:
         parsed = urlparse.urlparse(api_url)
 

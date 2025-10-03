@@ -7,9 +7,9 @@ from typing import Optional
 
 from pydantic import Field
 
-from .base import BaseModel
-from .history import History
-from .states import State
+from homeassistant_api.models.base import BaseModel
+from homeassistant_api.models.history import History
+from homeassistant_api.models.states import State
 
 if TYPE_CHECKING:
     from homeassistant_api import Client
@@ -32,6 +32,13 @@ class Group(BaseModel):
         description="A dictionary of all entities belonging to the group "
         "indexed by their :code:`entity_id`.",
     )
+
+    @property
+    def client(self) -> "Client":
+        return self._client
+
+    def add_entity(self, slug: str, state: State) -> None:
+        self._add_entity(slug=slug, state=state)
 
     def _add_entity(self, slug: str, state: State) -> None:
         """Registers entities to this Group object"""
@@ -60,7 +67,7 @@ class Entity(BaseModel):
 
     def get_state(self) -> State:
         """Asks Home Assistant for the state of the entity and updates it locally"""
-        self.state = self.group._client.get_state(entity_id=self.entity_id)
+        self.state = self.group.client.get_state(entity_id=self.entity_id)
         return self.state
 
     def update_state(self) -> State:
@@ -68,7 +75,7 @@ class Entity(BaseModel):
         Tells Home Assistant to set its current local State object.
         (You can modify the local state object yourself.)
         """
-        self.state = self.group._client.set_state(self.state)
+        self.state = self.group.client.set_state(self.state)
         return self.state
 
     @property
@@ -81,10 +88,11 @@ class Entity(BaseModel):
         start_timestamp: datetime | None = None,
         # Defaults to 1 day before. https://developers.home-assistant.io/docs/api/rest/
         end_timestamp: datetime | None = None,
+        *,
         significant_changes_only: bool = False,
     ) -> History | None:
         """Gets the previous :py:class:`State`'s of the :py:class:`Entity`"""
-        for history in self.group._client.get_entity_histories(
+        for history in self.group.client.get_entity_histories(
             entities=(self,),
             start_timestamp=start_timestamp,
             end_timestamp=end_timestamp,
@@ -95,7 +103,7 @@ class Entity(BaseModel):
 
     async def async_get_state(self) -> State:
         """Asks Home Assistant for the state of the entity and sets it locally"""
-        self.state = await self.group._client.async_get_state(
+        self.state = await self.group.client.async_get_state(
             group_id=self.group.group_id,
             slug=self.slug,
         )
@@ -103,7 +111,7 @@ class Entity(BaseModel):
 
     async def async_update_state(self) -> State:
         """Tells Home Assistant to set the current local State object."""
-        self.state = await self.group._client.async_set_state(self.state)
+        self.state = await self.group.client.async_set_state(self.state)
         return self.state
 
     async def async_get_history(
@@ -111,12 +119,13 @@ class Entity(BaseModel):
         start_timestamp: datetime | None = None,
         # Defaults to 1 day before. https://developers.home-assistant.io/docs/api/rest/
         end_timestamp: datetime | None = None,
+        *,
         significant_changes_only: bool = False,
     ) -> History | None:
         """
         Gets the :py:class:`History` of previous :py:class:`State`'s of the :py:class:`Entity`.
         """
-        async for history in self.group._client.async_get_entity_histories(
+        async for history in self.group.client.async_get_entity_histories(
             entities=(self,),
             start_timestamp=start_timestamp,
             end_timestamp=end_timestamp,

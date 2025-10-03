@@ -2,6 +2,7 @@
 
 import copy
 from datetime import datetime
+from datetime import timezone
 
 import pytest
 
@@ -114,8 +115,8 @@ def test_entity_get_history_none(cached_client: Client) -> None:
     entity = cached_client.get_entity(group_id="sun", slug="red_sun")
     assert entity is not None
     history = entity.get_history(
-        start_timestamp=datetime(2015, 1, 1),
-        end_timestamp=datetime(2020, 1, 1),
+        start_timestamp=datetime(2015, 1, 1, tzinfo=timezone.utc),
+        end_timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
     )
     assert history is None
 
@@ -124,7 +125,7 @@ async def test_async_entity_get_history_none(async_cached_client: Client) -> Non
     entity = await async_cached_client.async_get_entity(group_id="sun", slug="red_sun")
     assert entity is not None
     history = await entity.async_get_history(
-        start_timestamp=datetime(2015, 1, 1),
-        end_timestamp=datetime(2020, 1, 1),
+        start_timestamp=datetime(2015, 1, 1, tzinfo=timezone.utc),
+        end_timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
     )
     assert history is None

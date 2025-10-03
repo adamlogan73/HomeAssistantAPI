@@ -7,9 +7,8 @@ from datetime import timedelta
 from posixpath import join
 from urllib.parse import quote_plus
 
+from homeassistant_api.models import Entity
 from homeassistant_api.utils import JSONType
-
-from .models import Entity
 
 
 class RawBaseClient:
@@ -83,6 +82,7 @@ class RawBaseClient:
         start_timestamp: datetime | None = None,
         # Defaults to 1 day before. https://developers.home-assistant.io/docs/api/rest/
         end_timestamp: datetime | None = None,
+        *,
         significant_changes_only: bool = False,
     ) -> tuple[dict[str, str | None], str]:
         """

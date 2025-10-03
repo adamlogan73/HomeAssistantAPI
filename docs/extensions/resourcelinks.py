@@ -17,11 +17,11 @@ from sphinx.util.typing import RoleFunction
 
 def make_link_role(resource_links: dict[str, str]) -> RoleFunction:
     def role(
-        typ: str,
-        rawtext: str,
+        typ: str,  # noqa: ARG001
+        rawtext: str,  # noqa: ARG001
         text: str,
-        lineno: int,
-        inliner: Inliner,
+        lineno: int,  # noqa: ARG001
+        inliner: Inliner,  # noqa: ARG001
         options: dict | None = None,
         content: list[str] | None = None,
     ) -> tuple[list[Node], list[system_message]]:
@@ -48,13 +48,3 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_config_value("resource_links", {}, "env")
     app.connect("builder-inited", add_link_role)
     return {"version": sphinx.__display_version__, "parallel_read_safe": True}
-
-
-Callable[
-    [str, str, str, int, Inliner, dict[str, Any], Sequence[str]],
-    tuple[list[nodes.Node], list[nodes.system_message]],
-]
-Callable[
-    [str, str, str, int, Inliner, dict[Any, Any] | None, list[str] | None],
-    tuple[list[Node], list[Any]],
-]

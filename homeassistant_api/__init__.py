@@ -21,24 +21,24 @@ __all__ = (
     "WebsocketClient",
 )
 
-from .client import Client
-from .models.domains import Domain
-from .models.domains import Service
-from .models.entity import Entity
-from .models.entity import Group
-from .models.events import Event
-from .models.history import History
-from .models.logbook import LogbookEntry
-from .models.states import Context
-from .models.states import State
-from .models.websocket import AuthInvalid
-from .models.websocket import AuthOk
-from .models.websocket import AuthRequired
-from .models.websocket import ErrorResponse
-from .models.websocket import EventResponse
-from .models.websocket import PingResponse
-from .models.websocket import ResultResponse
-from .websocket import WebsocketClient
+from homeassistant_api.client import Client
+from homeassistant_api.models.domains import Domain
+from homeassistant_api.models.domains import Service
+from homeassistant_api.models.entity import Entity
+from homeassistant_api.models.entity import Group
+from homeassistant_api.models.events import Event
+from homeassistant_api.models.history import History
+from homeassistant_api.models.logbook import LogbookEntry
+from homeassistant_api.models.states import Context
+from homeassistant_api.models.states import State
+from homeassistant_api.models.websocket import AuthInvalid
+from homeassistant_api.models.websocket import AuthOk
+from homeassistant_api.models.websocket import AuthRequired
+from homeassistant_api.models.websocket import ErrorResponse
+from homeassistant_api.models.websocket import EventResponse
+from homeassistant_api.models.websocket import PingResponse
+from homeassistant_api.models.websocket import ResultResponse
+from homeassistant_api.websocket import WebsocketClient
 
 Domain.model_rebuild()
 Entity.model_rebuild()

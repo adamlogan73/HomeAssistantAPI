@@ -39,7 +39,10 @@ def prepare_entity_id(
             "Also make sure you are using keyword arguments."
         )
         raise ValueError(msg)
-    if group_id is not None and slug is not None:
+    if group_id is not None and slug is not None and entity_id is None:
         entity_id = f"{group_id}.{slug}"
-    assert entity_id is not None
+    if entity_id is None:
+        msg = "Provide an entity_id or both group_id and slug."
+        raise ValueError(msg)
+
     return format_entity_id(entity_id)
