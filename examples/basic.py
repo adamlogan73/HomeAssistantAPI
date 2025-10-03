@@ -15,6 +15,9 @@ with Client(
     token,
 ) as client:  # Create Client object and check that its running.
     cover = client.get_domain("cover")
+    if cover is None:
+        msg = "Did not get a cover domain."
+        raise ValueError(msg)
 
     # Tells Home Assistant to trigger the toggle service on the given entity_id
     cover.toggle(entity_id="cover.garage_door")

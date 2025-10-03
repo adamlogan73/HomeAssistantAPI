@@ -181,7 +181,8 @@ class WebsocketClient(RawWebsocketClient):
         domains = (
             Domain.from_json({"domain": item[0], "services": item[1]}, client=self)
             for item in cast(
-                "dict[str, JSONType]", cast("ResultResponse", resp).result,
+                "dict[str, JSONType]",
+                cast("ResultResponse", resp).result,
             ).items()
         )
         return {domain.domain_id: domain for domain in domains}

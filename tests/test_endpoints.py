@@ -308,7 +308,7 @@ async def test_async_get_state(async_cached_client: Client) -> None:
 def test_set_state(cached_client: Client) -> None:
     """Tests the `POST /api/states/<entity_id>` endpoint."""
     state = cached_client.set_state(
-        State(state="beyond_our_solar_system", entity_id="sun.red_sun"),
+        State(state="beyond_our_solar_system", entity_id="sun.red_sun"),  # type: ignore[call-arg]
     )
     assert state.state == "beyond_our_solar_system"
 
@@ -316,7 +316,7 @@ def test_set_state(cached_client: Client) -> None:
 async def test_async_set_state(async_cached_client: Client) -> None:
     """Tests the `POST /api/states/<entity_id>` endpoint."""
     state = await async_cached_client.async_set_state(
-        State(state="beyond_our_solar_system", entity_id="sun.red_sun"),
+        State(state="beyond_our_solar_system", entity_id="sun.red_sun"),  # type: ignore[call-arg]
     )
     assert state.state == "beyond_our_solar_system"
 

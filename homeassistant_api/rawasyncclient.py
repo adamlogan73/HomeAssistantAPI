@@ -116,7 +116,8 @@ class RawAsyncClient(RawBaseClient):
         except asyncio.exceptions.TimeoutError as err:
             msg = f"Home Assistant did not respond in time (timeout: {kwargs.get('timeout', 300)} sec)"
             raise RequestTimeoutError(
-                msg, self.endpoint(path) + f"?{params}" * bool(params),
+                msg,
+                self.endpoint(path) + f"?{params}" * bool(params),
             ) from err
 
     @staticmethod

@@ -109,7 +109,8 @@ class RawClient(RawBaseClient):
         except requests.exceptions.Timeout as err:
             msg = f"Home Assistant did not respond in time (timeout: {kwargs.get('timeout', 300)} sec)"
             raise RequestTimeoutError(
-                msg, url=self.endpoint(path) + f"?{params}" * bool(params),
+                msg,
+                url=self.endpoint(path) + f"?{params}" * bool(params),
             ) from err
         return self.response_logic(response=resp, decode_bytes=decode_bytes)
 

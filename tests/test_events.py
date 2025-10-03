@@ -26,7 +26,9 @@ def test_listen_trigger(websocket_client: WebsocketClient) -> None:
         at=future.strftime("%H:%M:%S"),
     ) as triggers:
         for _, trigger in zip(range(1), triggers, strict=False):
+            assert isinstance(trigger["trigger"], dict)
             assert trigger["trigger"]["platform"] == "time"
-            assert datetime.fromisoformat(
-                trigger["trigger"]["now"],
-            ).timestamp() == pytest.approx(future.timestamp(), abs=1)
+            data_now = trigger["trigger"]["now"]
+            assert isinstance(data_now, str)
+            data_now_dt = datetime.fromisoformat(data_now).timestamp()
+            assert data_now_dt == pytest.approx(future.timestamp(), abs=1)

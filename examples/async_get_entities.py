@@ -9,6 +9,12 @@ token = os.getenv("HOMEASSISTANT_API_TOKEN")
 
 async def main() -> None:
     # Initialize main object
+    if url is None:
+        msg = "Must set HOMEASSISTANT_API_ENDPOINT env variable to continue"
+        raise ValueError(msg)
+    if token is None:
+        msg = "Must set HOMEASSISTANT_API_TOKEN env variable to continue"
+        raise ValueError(msg)
     client = Client(url, token, use_async=True)
     # Uses async context manager to ping the server and initialize caching.
     async with client:
