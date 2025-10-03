@@ -3,17 +3,14 @@ import logging
 import urllib.parse as urlparse
 from collections.abc import Generator
 from typing import Any
-from typing import cast
 
 from homeassistant_api.models import Domain
 from homeassistant_api.models import Entity
 from homeassistant_api.models import Group
 from homeassistant_api.models import State
 from homeassistant_api.models.states import Context
-from homeassistant_api.models.websocket import EventResponse
 from homeassistant_api.models.websocket import FiredEvent
 from homeassistant_api.models.websocket import FiredTrigger
-from homeassistant_api.models.websocket import ResultResponse
 from homeassistant_api.models.websocket import TemplateEvent
 from homeassistant_api.rawwebsocket import RawWebsocketClient
 from homeassistant_api.utils import JSONType
@@ -61,13 +58,12 @@ class WebsocketClient(RawWebsocketClient):
         Sends command :code:`{"type": "render_template", ...}`.
         """
         id_ = self.send("render_template", template=template, report_errors=True)
-        first = self.recv(id_)
-        if cast("ResultResponse", first).result is not None:
-            msg = "Result should be None"
-            raise ValueError(msg)
-        second = self.recv(id_)
+        event = self.recv_event_response(id_)
         self._unsubscribe(id_)
-        return cast("TemplateEvent", cast("EventResponse", second).event).result
+        if not isinstance(event.event, TemplateEvent):
+            msg = f"Expected TemplateEvent, got {type(event.event)}"
+            raise TypeError(msg)
+        return event.event.result
 
     def get_config(self) -> dict[str, JSONType]:
         """
@@ -75,13 +71,10 @@ class WebsocketClient(RawWebsocketClient):
 
         Sends command :code:`{"type": "get_config", ...}`.
         """
-        return cast(
-            "dict[str, JSONType]",
-            cast(
-                "ResultResponse",
-                self.recv(self.send("get_config")),
-            ).result,
-        )
+        config = self.recv_result_response(self.send("get_config")).result
+        if not isinstance(config, dict):
+            raise TypeError
+        return config
 
     def get_states(self) -> tuple[State, ...]:
         """
@@ -89,13 +82,10 @@ class WebsocketClient(RawWebsocketClient):
 
         Sends command :code:`{"type": "get_states", ...}`.
         """
-        return tuple(
-            State.from_json(state)
-            for state in cast(
-                "list[dict[str, JSONType]]",
-                cast("ResultResponse", self.recv(self.send("get_states"))).result,
-            )
-        )
+        response = self.recv_result_response(self.send("get_states"))
+        if not isinstance(response.result, list):
+            raise TypeError
+        return tuple(State.from_json(state) for state in response.result)
 
     def get_state(  # pylint: disable=duplicate-code
         self,
@@ -179,13 +169,12 @@ class WebsocketClient(RawWebsocketClient):
 
         Sends command :code:`{"type": "get_services", ...}`.
         """
-        resp = self.recv(self.send("get_services"))
+        resp = self.recv_result_response(self.send("get_services"))
+        if not isinstance(resp.result, dict):
+            raise TypeError
         domains = (
-            Domain.from_json({"domain": item[0], "services": item[1]}, client=self)
-            for item in cast(
-                "dict[str, JSONType]",
-                cast("ResultResponse", resp).result,
-            ).items()
+            Domain.from_json({"domain": domain, "services": services}, client=self)
+            for domain, services in resp.result.items()
         )
         return {domain.domain_id: domain for domain in domains}
 
@@ -205,7 +194,7 @@ class WebsocketClient(RawWebsocketClient):
         domain: str,
         service: str,
         entity_id: str | None = None,
-        **service_data,
+        **service_data: Any,  # noqa: ANN401
     ) -> None:
         """
         Trigger a service (that doesn't return a response).
@@ -221,15 +210,14 @@ class WebsocketClient(RawWebsocketClient):
         if entity_id is not None:
             params["target"] = {"entity_id": entity_id}
 
-        data = self.recv(self.send("call_service", include_id=True, **params))
+        data = self.recv_result_response(
+            self.send("call_service", include_id=True, **params),
+        )
 
         # TODO: handle data["result"]["context"] ?
 
         if (
-            cast("dict[str, JSONType]", cast("ResultResponse", data).result).get(
-                "response",
-            )
-            is not None
+            data.result is None or data.result.get("response") is not None
         ):  # should always be None for services without a response
             msg = "data should always be None for services without a response"
             raise ValueError(msg)
@@ -239,7 +227,7 @@ class WebsocketClient(RawWebsocketClient):
         domain: str,
         service: str,
         entity_id: str | None = None,
-        **service_data,
+        **service_data: Any,  # noqa: ANN401
     ) -> dict[str, JSONType]:
         """
         Trigger a service (that returns a response) and return the response.
@@ -255,12 +243,12 @@ class WebsocketClient(RawWebsocketClient):
         if entity_id is not None:
             params["target"] = {"entity_id": entity_id}
 
-        data = self.recv(self.send("call_service", include_id=True, **params))
-
-        return cast(
-            "dict[str, dict[str, JSONType]]",
-            cast("ResultResponse", data).result,
-        )["response"]
+        data = self.recv_result_response(
+            self.send("call_service", include_id=True, **params),
+        )
+        if not isinstance(data.result, dict):
+            raise TypeError
+        return data.result["response"]
 
     @contextlib.contextmanager
     def listen_events(
@@ -279,7 +267,7 @@ class WebsocketClient(RawWebsocketClient):
                     print(event)
         """
         subscription = self._subscribe_events(event_type)
-        yield cast("Generator[FiredEvent, None, None]", self._wait_for(subscription))
+        yield self._wait_for_fired_event(subscription)
         self._unsubscribe(subscription)
 
     def _subscribe_events(self, event_type: str | None) -> int:
@@ -296,7 +284,7 @@ class WebsocketClient(RawWebsocketClient):
     def listen_trigger(
         self,
         trigger: str,
-        **trigger_fields,
+        **trigger_fields: Any,  # noqa: ANN401
     ) -> Generator[Generator[dict[str, JSONType], None, None], None, None]:
         """
         Listen to a Home Assistant trigger.
@@ -327,14 +315,15 @@ class WebsocketClient(RawWebsocketClient):
         subscription = self._subscribe_trigger(trigger, **trigger_fields)
         yield (
             fired_trigger.variables
-            for fired_trigger in cast(
-                "Generator[FiredTrigger, None, None]",
-                self._wait_for(subscription),
-            )
+            for fired_trigger in self._wait_for_fired_trigger(subscription)
         )
         self._unsubscribe(subscription)
 
-    def _subscribe_trigger(self, trigger: str, **trigger_fields) -> int:
+    def _subscribe_trigger(
+        self,
+        trigger: str,
+        **trigger_fields: Any,  # noqa: ANN401
+    ) -> int:
         """
         Return the subscription id of the trigger we subscribe to.
 
@@ -355,10 +344,27 @@ class WebsocketClient(RawWebsocketClient):
         An iterator that waits for events of a certain type.
         """
         while True:
-            yield cast(
-                "FiredEvent | FiredTrigger",  # we can cast this because TemplateEvent is only used for rendering templates
-                cast("EventResponse", self.recv(subscription_id)).event,
-            )
+            event = self.recv_event_response(subscription_id).event
+            if isinstance(event, (FiredEvent, FiredTrigger)):
+                yield event
+
+    def _wait_for_fired_event(
+        self,
+        subscription_id: int,
+    ) -> Generator[FiredEvent, None, None]:
+        while True:
+            event = self.recv_event_response(subscription_id).event
+            if isinstance(event, FiredEvent):
+                yield event
+
+    def _wait_for_fired_trigger(
+        self,
+        subscription_id: int,
+    ) -> Generator[FiredTrigger, None, None]:
+        while True:
+            event = self.recv_event_response(subscription_id).event
+            if isinstance(event, FiredTrigger):
+                yield event
 
     def _unsubscribe(self, subcription_id: int) -> None:
         """
@@ -366,13 +372,19 @@ class WebsocketClient(RawWebsocketClient):
 
         Sends command :code:`{"type": "unsubscribe_events", ...}`.
         """
-        resp = self.recv(self.send("unsubscribe_events", subscription=subcription_id))
-        if cast("ResultResponse", resp).result is not None:
+        resp = self.recv_result_response(
+            self.send("unsubscribe_events", subscription=subcription_id),
+        )
+        if resp.result is not None:
             msg = "result should be None"
             raise ValueError(msg)
         self._event_responses.pop(subcription_id)
 
-    def fire_event(self, event_type: str, **event_data) -> Context:
+    def fire_event(
+        self,
+        event_type: str,
+        **event_data: Any,  # noqa: ANN401
+    ) -> Context:
         """
         Fire an event.
 
@@ -381,24 +393,25 @@ class WebsocketClient(RawWebsocketClient):
         params: dict[str, JSONType] = {"event_type": event_type}
         if event_data:
             params["event_data"] = event_data
-        return Context.from_json(
-            cast(
-                "dict[str, dict[str, JSONType]]",
-                cast(
-                    "ResultResponse",
-                    self.recv(self.send("fire_event", include_id=True, **params)),
-                ).result,
-            )["context"],
+        response = self.recv_result_response(
+            self.send("fire_event", include_id=True, **params),
         )
+        if not isinstance(response.result, dict):
+            raise TypeError
+        return Context.from_json(response.result["context"])
 
     async def async_trigger_service_with_response(
         self,
-        *args: Any,
-        **kwargs: Any,
-    ) -> Any:
+        *args: Any,  # noqa: ANN401
+        **kwargs: Any,  # noqa: ANN401
+    ) -> Any:  # noqa: ANN401
         msg = "WebsocketClient does not support async/await syntax."
         raise NotImplementedError(msg)
 
-    async def async_trigger_service(self, *args: Any, **kwargs: Any) -> Any:
+    async def async_trigger_service(
+        self,
+        *args: Any,  # noqa: ANN401
+        **kwargs: Any,  # noqa: ANN401
+    ) -> Any:  # noqa: ANN401
         msg = "WebsocketClient does not support async/await syntax."
         raise NotImplementedError(msg)

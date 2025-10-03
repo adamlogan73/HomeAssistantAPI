@@ -1,6 +1,5 @@
 """Module for making sure endpoints that should succeed, do indeed succeed."""
 
-import logging
 from datetime import datetime
 from datetime import timezone
 
@@ -210,7 +209,6 @@ def test_trigger_service(cached_client: Client) -> None:
         message="Your API Test Suite just said hello!",
         title="Test Suite Notifcation",
     )
-    logging.info(resp)
     assert isinstance(resp, tuple)
 
 
