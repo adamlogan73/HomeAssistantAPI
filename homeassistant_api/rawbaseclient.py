@@ -118,9 +118,9 @@ class RawBaseClient:
         filter_entities: str | Iterable[str] | None = None,
         start_timestamp: str | datetime | None = None,  # Defaults to 1 day before
         end_timestamp: str | datetime | None = None,
-    ) -> tuple[dict[str, str], str]:
+    ) -> tuple[dict[str, str | None], str]:
         """Prepares the query string and url path for retrieving logbook entries."""
-        params: dict[str, str] = {}
+        params: dict[str, str | None] = {}
         if filter_entities is not None:
             params.update(
                 {

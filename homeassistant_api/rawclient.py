@@ -9,7 +9,6 @@ from types import TracebackType
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Literal
-from typing import cast
 
 import requests
 import requests_cache
@@ -117,6 +116,24 @@ class RawClient(RawBaseClient):
             ) from err
         return self.response_logic(response=resp, decode_bytes=decode_bytes)
 
+    def dict_request(self, *args: Any, **kwargs: Any) -> dict:
+        data = self.request(*args, **kwargs)
+        if not isinstance(data, dict):
+            raise TypeError
+        return data
+
+    def list_request(self, *args: Any, **kwargs: Any) -> list:
+        data = self.request(*args, **kwargs)
+        if not isinstance(data, list):
+            raise TypeError
+        return data
+
+    def str_request(self, *args: Any, **kwargs: Any) -> str:
+        data = self.request(*args, **kwargs)
+        if not isinstance(data, str):
+            raise TypeError
+        return data
+
     @classmethod
     def response_logic(
         cls,
@@ -133,14 +150,14 @@ class RawClient(RawBaseClient):
         Returns the server error log as a string.
         :code:`GET /api/error_log`
         """
-        return cast("str", self.request("error_log"))
+        return self.str_request("error_log")
 
     def get_config(self) -> dict[str, JSONType]:
         """
         Returns the yaml configuration of homeassistant.
         :code:`GET /api/config`
         """
-        return cast("dict[str, JSONType]", self.request("config"))
+        return self.dict_request("config")
 
     def get_logbook_entries(
         self,
@@ -152,10 +169,7 @@ class RawClient(RawBaseClient):
         :code:`GET /api/logbook/<timestamp>`
         """
         params, url = self.prepare_get_logbook_entry_params(*args, **kwargs)
-        data = self.request(
-            url,
-            params=self.construct_params(cast("dict[str, str | None]", params)),
-        )
+        data = self.list_request(url, params=self.construct_params(params))
         for entry in data:
             yield LogbookEntry.model_validate(entry)
 
@@ -178,10 +192,7 @@ class RawClient(RawBaseClient):
             end_timestamp=end_timestamp,
             significant_changes_only=significant_changes_only,
         )
-        data = self.request(
-            url,
-            params=self.construct_params(params),
-        )
+        data = self.list_request(url, params=self.construct_params(params))
         for states in data:
             yield History.model_validate({"states": states})
 
@@ -192,9 +203,10 @@ class RawClient(RawBaseClient):
         :code:`POST /api/template`
         """
         try:
-            return cast(
-                "str",
-                self.request("template", json={"template": template}, method="POST"),
+            return self.str_request(
+                "template",
+                json={"template": template},
+                method="POST",
             )
         except RequestError as err:
             msg = (
@@ -209,10 +221,7 @@ class RawClient(RawBaseClient):
         Asks Home Assistant to validate its configuration file.
         :code:`POST /api/config/core/check_config`
         """
-        res = cast(
-            "dict[str, str]",
-            self.request("config/core/check_config", method="POST"),
-        )
+        res = self.dict_request("config/core/check_config", method="POST")
         return {"valid": True, "invalid": False}.get(res["result"], False)
 
     def check_api_running(self) -> bool:
@@ -220,8 +229,8 @@ class RawClient(RawBaseClient):
         Asks Home Assistant if it is running.
         :code:`GET /api/`
         """
-        res = self.request("")
-        return cast("dict[str, JSONType]", res).get("message") == "API running."
+        res = self.dict_request("")
+        return res.get("message") == "API running."
 
     # Entity methods
     def get_entities(self) -> dict[str, Group]:
@@ -275,11 +284,8 @@ class RawClient(RawBaseClient):
         Fetches all :py:class:`Service` 's from the API.
         :code:`GET /api/services`
         """
-        data = self.request("services")
-        domains = (
-            Domain.from_json(datum, client=cast("Client", self))
-            for datum in cast("tuple[dict[str, JSONType], ...]", data)
-        )
+        data = self.list_request("services")
+        domains = (Domain.from_json(datum, client=self) for datum in data)
         return {domain.domain_id: domain for domain in domains}
 
     def get_domain(self, domain_id: str) -> Domain | None:
@@ -299,12 +305,12 @@ class RawClient(RawBaseClient):
         Tells Home Assistant to trigger a service, returns all states changed while in the process of being called.
         :code:`POST /api/services/<domain>/<service>`
         """
-        data = self.request(
+        data = self.list_request(
             join("services", domain, service),
             method="POST",
             json=service_data,
         )
-        return tuple(map(State.from_json, cast("list[dict[str, JSONType]]", data)))
+        return tuple(map(State.from_json, data))
 
     def trigger_service_with_response(
         self,
@@ -318,20 +324,12 @@ class RawClient(RawBaseClient):
 
         Returns a list of the states changed and the response from the service call.
         """
-        data = cast(
-            "dict[str, dict[str, JSONType]]",
-            self.request(
-                join("services", domain, service) + "?return_response",
-                method="POST",
-                json=service_data,
-            ),
+        data = self.dict_request(
+            join("services", domain, service) + "?return_response",
+            method="POST",
+            json=service_data,
         )
-        states = tuple(
-            map(
-                State.from_json,
-                cast("list[dict[Any, Any]]", data.get("changed_states", [])),
-            ),
-        )
+        states = tuple(map(State.from_json, data.get("changed_states", [])))
         return states, data.get("service_response", {})
 
     # EntityState methods
@@ -346,13 +344,9 @@ class RawClient(RawBaseClient):
         Fetches the state of the entity specified.
         :code:`GET /api/states/<entity_id>`
         """
-        entity_id = prepare_entity_id(
-            group_id=group_id,
-            slug=slug,
-            entity_id=entity_id,
-        )
-        data = self.request(join("states", entity_id))
-        return State.from_json(cast("dict[str, JSONType]", data))
+        entity_id = prepare_entity_id(group_id=group_id, slug=slug, entity_id=entity_id)
+        data = self.dict_request(join("states", entity_id))
+        return State.from_json(data)
 
     def set_state(  # pylint: disable=duplicate-code
         self,
@@ -363,21 +357,20 @@ class RawClient(RawBaseClient):
         To communicate with the device, use :py:meth:`Service.trigger` or :py:meth:`Service.async_trigger`.
         :code:`POST /api/states/<entity_id>`
         """
-        data = self.request(
+        data = self.dict_request(
             join("states", state.entity_id),
             method="POST",
             json=json.loads(state.model_dump_json()),
         )
-        return State.from_json(cast("dict[str, JSONType]", data))
+        return State.from_json(data)
 
     def get_states(self) -> tuple[State, ...]:
         """
         Gets the states of all entities within homeassistant.
         :code:`GET /api/states`
         """
-        data = self.request("states")
-        states = map(State.from_json, cast("list[dict[str, JSONType]]", data))
-        return tuple(states)
+        data = self.list_request("states")
+        return tuple(State.from_json(datum) for datum in data)
 
     # Event methods
     def get_events(self) -> tuple[Event, ...]:
@@ -385,12 +378,9 @@ class RawClient(RawBaseClient):
         Gets the Events that happen within homeassistant
         :code:`GET /api/events`
         """
-        data = self.request("events")
+        data = self.list_request("events")
         return tuple(
-            (
-                Event.from_json(datum, client=cast("Client", self))
-                for datum in cast("list[dict[str, JSONType]]", data)
-            ),
+            (Event.from_json(datum, client=self) for datum in data),
         )
 
     def get_event(self, name: str) -> Event | None:
@@ -408,16 +398,16 @@ class RawClient(RawBaseClient):
         Fires a given event_type within homeassistant. Must be an existing event_type.
         `POST /api/events/<event_type>`
         """
-        data = self.request(
+        data = self.dict_request(
             join("events", event_type),
             method="POST",
             json=event_data,
         )
-        return cast("dict[str, str]", data).get("message")
+        return data.get("message")
 
     def get_components(self) -> tuple[str, ...]:
         """
         Returns a tuple of all registered components.
         :code:`GET /api/components`
         """
-        return tuple(self.request("components"))
+        return tuple(self.list_request("components"))

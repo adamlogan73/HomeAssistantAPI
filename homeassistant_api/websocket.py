@@ -399,19 +399,3 @@ class WebsocketClient(RawWebsocketClient):
         if not isinstance(response.result, dict):
             raise TypeError
         return Context.from_json(response.result["context"])
-
-    async def async_trigger_service_with_response(
-        self,
-        *args: Any,  # noqa: ANN401
-        **kwargs: Any,  # noqa: ANN401
-    ) -> Any:  # noqa: ANN401
-        msg = "WebsocketClient does not support async/await syntax."
-        raise NotImplementedError(msg)
-
-    async def async_trigger_service(
-        self,
-        *args: Any,  # noqa: ANN401
-        **kwargs: Any,  # noqa: ANN401
-    ) -> Any:  # noqa: ANN401
-        msg = "WebsocketClient does not support async/await syntax."
-        raise NotImplementedError(msg)

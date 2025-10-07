@@ -8,7 +8,6 @@ from enum import Enum
 from types import FrameType
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import cast
 
 from pydantic import Field
 
@@ -22,6 +21,8 @@ if TYPE_CHECKING:
     from homeassistant_api import Client
     from homeassistant_api import WebsocketClient
     from homeassistant_api.models.states import State
+    from homeassistant_api.rawasyncclient import RawAsyncClient
+    from homeassistant_api.rawclient import RawClient
 
 
 class Domain(BaseModel):
@@ -30,7 +31,7 @@ class Domain(BaseModel):
     def __init__(
         self,
         *args: Any,  # noqa: ANN401
-        _client: Client | WebsocketClient | None = None,
+        _client: Client | WebsocketClient | RawClient | RawAsyncClient | None = None,
         **kwargs: Any,  # noqa: ANN401
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -39,7 +40,7 @@ class Domain(BaseModel):
             raise ValueError(msg)
         object.__setattr__(self, "_client", _client)
 
-    _client: Client | WebsocketClient
+    _client: Client | WebsocketClient | RawClient | RawAsyncClient
     domain_id: str = Field(
         ...,
         description="The name of the domain that services belong to. "
@@ -51,25 +52,27 @@ class Domain(BaseModel):
     )
 
     @property
-    def client(self) -> Client | WebsocketClient:
+    def client(self) -> Client | WebsocketClient | RawClient | RawAsyncClient:
         return self._client
 
     @classmethod
     def from_json(
         cls,
         json: dict[str, JSONType],
-        client: Client | WebsocketClient,
+        client: Client | WebsocketClient | RawClient | RawAsyncClient,
     ) -> Domain:
         """Constructs Domain and Service models from json data."""
         if "domain" not in json or "services" not in json:
             msg = "Missing services or domain attribute in json argument."
             raise ValueError(msg)
-        domain = cls(domain_id=cast("str", json.get("domain")), _client=client)
-        services = cast("dict[str, dict[str, JSONType]]", json.get("services"))
+        domain = cls(domain_id=str(json.get("domain")), _client=client)
+        services = json.get("services")
         if not isinstance(services, dict):
             msg = "Service data is malformed."
             raise TypeError(msg)
         for service_id, data in services.items():
+            if not isinstance(data, dict):
+                raise TypeError
             domain._add_service(service_id, **data)
         return domain
 
@@ -586,13 +589,13 @@ class Service(BaseModel):
     ):
         """Triggers the service associated with this object."""
         try:
-            return self.domain.client.trigger_service_with_response(
+            return self.domain.client.trigger_service_with_response(  # type: ignore[union-attr]
                 self.domain.domain_id,
                 self.service_id,
                 **service_data,
             )
         except RequestError:
-            return self.domain.client.trigger_service(
+            return self.domain.client.trigger_service(  # type: ignore[union-attr]
                 self.domain.domain_id,
                 self.service_id,
                 **service_data,
@@ -604,13 +607,13 @@ class Service(BaseModel):
     ) -> tuple[State, ...] | tuple[tuple[State, ...], dict[str, JSONType]]:
         """Triggers the service associated with this object."""
         try:
-            return await self.domain.client.async_trigger_service_with_response(
+            return await self.domain.client.async_trigger_service_with_response(  # type: ignore[union-attr]
                 self.domain.domain_id,
                 self.service_id,
                 **service_data,
             )
         except RequestError:
-            return await self.domain.client.async_trigger_service(
+            return await self.domain.client.async_trigger_service(  # type: ignore[union-attr]
                 self.domain.domain_id,
                 self.service_id,
                 **service_data,

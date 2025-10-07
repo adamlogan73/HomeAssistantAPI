@@ -7,10 +7,8 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from posixpath import join
 from types import TracebackType
-from typing import TYPE_CHECKING
 from typing import Any
 from typing import Literal
-from typing import cast
 
 import aiohttp
 import aiohttp_client_cache.session
@@ -31,11 +29,6 @@ from homeassistant_api.processing import Processing
 from homeassistant_api.rawbaseclient import RawBaseClient
 from homeassistant_api.utils import JSONType
 from homeassistant_api.utils import prepare_entity_id
-
-if TYPE_CHECKING:
-    from homeassistant_api import Client
-else:
-    Client = object
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +124,24 @@ class RawAsyncClient(RawBaseClient):
                 self.endpoint(path) + f"?{params}" * bool(params),
             ) from err
 
+    async def async_dict_request(self, *args: Any, **kwargs: Any) -> dict:
+        data = await self.async_request(*args, **kwargs)
+        if not isinstance(data, dict):
+            raise TypeError
+        return data
+
+    async def async_list_request(self, *args: Any, **kwargs: Any) -> list:
+        data = await self.async_request(*args, **kwargs)
+        if not isinstance(data, list):
+            raise TypeError
+        return data
+
+    async def async_str_request(self, *args: Any, **kwargs: Any) -> str:
+        data = await self.async_request(*args, **kwargs)
+        if not isinstance(data, str):
+            raise TypeError
+        return data
+
     @staticmethod
     async def async_response_logic(response: AsyncResponseType) -> Any:  # noqa: ANN401
         """Processes custom mimetype content asyncronously."""
@@ -142,14 +153,14 @@ class RawAsyncClient(RawBaseClient):
         Returns the server error log as a string.
         :code:`GET /api/error_log`
         """
-        return cast("str", await self.async_request("error_log"))
+        return await self.async_str_request("error_log")
 
     async def async_get_config(self) -> dict[str, JSONType]:
         """
         Returns the yaml configuration of homeassistant.
         :code:`GET /api/config`
         """
-        return cast("dict[str, JSONType]", await self.async_request("config"))
+        return await self.async_dict_request("config")
 
     async def async_get_logbook_entries(
         self,
@@ -161,10 +172,7 @@ class RawAsyncClient(RawBaseClient):
         :code:`GET /api/logbook/<timestamp>`
         """
         params, url = self.prepare_get_logbook_entry_params(*args, **kwargs)
-        data = await self.async_request(
-            url,
-            params=self.construct_params(cast("dict[str, str | None]", params)),
-        )
+        data = await self.async_list_request(url, params=self.construct_params(params))
         for entry in data:
             yield LogbookEntry.model_validate(entry)
 
@@ -187,10 +195,7 @@ class RawAsyncClient(RawBaseClient):
             end_timestamp=end_timestamp,
             significant_changes_only=significant_changes_only,
         )
-        data = await self.async_request(
-            url,
-            params=self.construct_params(params),
-        )
+        data = await self.async_list_request(url, params=self.construct_params(params))
         for states in data:
             yield History.model_validate({"states": states})
 
@@ -200,13 +205,10 @@ class RawAsyncClient(RawBaseClient):
         :code:`POST /api/template`
         """
         try:
-            return cast(
-                "str",
-                await self.async_request(
-                    "template",
-                    json={"template": template},
-                    method="POST",
-                ),
+            return await self.async_str_request(
+                "template",
+                json={"template": template},
+                method="POST",
             )
         except RequestError as err:
             msg = (
@@ -221,18 +223,15 @@ class RawAsyncClient(RawBaseClient):
         Asks Home Assistant to validate its configuration file and returns true/false.
         :code:`POST /api/config/core/check_config`
         """
-        res = await self.async_request("config/core/check_config", method="POST")
-        res = cast("dict[Any, Any]", res)
-        return {"valid": True, "invalid": False}.get(cast("str", res["result"]), False)
+        res = await self.async_dict_request("config/core/check_config", method="POST")
+        return {"valid": True, "invalid": False}.get(res["result"], False)
 
     async def async_check_api_running(self) -> bool:
         """
         Asks Home Assistant if its running.
         :code:`GET /api/`
         """
-        res = await self.async_request("")
-        if not isinstance(res, dict):
-            raise TypeError
+        res = await self.async_dict_request("")
         return res.get("message") == "API running."
 
     # Entity methods
@@ -281,11 +280,8 @@ class RawAsyncClient(RawBaseClient):
         Fetches all :py:class:`Service` 's from the API.
         :code:`GET /api/services`
         """
-        data = await self.async_request("services")
-        domains = (
-            Domain.from_json(datum, client=cast("Client", self))
-            for datum in cast("tuple[dict[str, JSONType], ...]", data)
-        )
+        data = await self.async_list_request("services")
+        domains = (Domain.from_json(datum, client=self) for datum in data)
         return {domain.domain_id: domain for domain in domains}
 
     async def async_get_domain(self, domain_id: str) -> Domain | None:
@@ -306,12 +302,12 @@ class RawAsyncClient(RawBaseClient):
         Tells Home Assistant to trigger a service, returns all states changed while in the process of being called.
         :code:`POST /api/services/<domain>/<service>`
         """
-        data = await self.async_request(
+        data = await self.async_list_request(
             f"services/{domain}/{service}",
             method="POST",
             json=service_data,
         )
-        return tuple(map(State.from_json, cast("list[dict[Any, Any]]", data)))
+        return tuple(map(State.from_json, data))
 
     async def async_trigger_service_with_response(
         self,
@@ -325,20 +321,12 @@ class RawAsyncClient(RawBaseClient):
 
         Returns a list of the states changed and the response from the service call.
         """
-        data = cast(
-            "dict[str, dict[str, JSONType]]",
-            await self.async_request(
-                join("services", domain, service) + "?return_response",
-                method="POST",
-                json=service_data,
-            ),
+        data = await self.async_dict_request(
+            join("services", domain, service) + "?return_response",
+            method="POST",
+            json=service_data,
         )
-        states = tuple(
-            map(
-                State.from_json,
-                cast("list[dict[Any, Any]]", data.get("changed_states", [])),
-            ),
-        )
+        states = tuple(map(State.from_json, data.get("changed_states", [])))
         return states, data.get("service_response", {})
 
     # EntityState methods
@@ -358,8 +346,8 @@ class RawAsyncClient(RawBaseClient):
             slug=slug,
             entity_id=entity_id,
         )
-        data = await self.async_request(join("states", target_entity_id))
-        return State.from_json(cast("dict[Any, Any]", data))
+        data = await self.async_dict_request(join("states", target_entity_id))
+        return State.from_json(data)
 
     async def async_set_state(  # pylint: disable=duplicate-code
         self,
@@ -370,20 +358,20 @@ class RawAsyncClient(RawBaseClient):
         To communicate with the device, use :py:meth:`Service.trigger` or :py:meth:`Service.async_trigger`.
         :code:`POST /api/states/<entity_id>`
         """
-        data = await self.async_request(
+        data = await self.async_dict_request(
             join("states", state.entity_id),
             method="POST",
             json=json.loads(state.model_dump_json()),
         )
-        return State.from_json(cast("dict[Any, Any]", data))
+        return State.from_json(data)
 
     async def async_get_states(self) -> tuple[State, ...]:
         """
         Gets the states of all entities within homeassistant.
         :code:`GET /api/states`
         """
-        data = await self.async_request("states")
-        return tuple(map(State.from_json, cast("list[dict[Any, Any]]", data)))
+        data = await self.async_list_request("states")
+        return tuple(map(State.from_json, data))
 
     # Event methods
     async def async_get_events(self) -> tuple[Event, ...]:
@@ -391,12 +379,9 @@ class RawAsyncClient(RawBaseClient):
         Gets the Events that happen within homeassistant
         :code:`GET /api/events`
         """
-        data = await self.async_request("events")
+        data = await self.async_list_request("events")
         return tuple(
-            (
-                Event.from_json(datum, client=cast("Client", self))
-                for datum in cast("list[dict[str, JSONType]]", data)
-            ),
+            (Event.from_json(datum, client=self) for datum in data),
         )
 
     async def async_get_event(self, name: str) -> Event | None:
@@ -414,17 +399,17 @@ class RawAsyncClient(RawBaseClient):
         Fires a given event_type within homeassistant. Must be an existing event_type.
         :code:`POST /api/events/<event_type>`
         """
-        data = await self.async_request(
+        data = await self.async_dict_request(
             join("events", event_type),
             method="POST",
             json=event_data,
         )
-        return cast("str", data.get("message", "No message provided"))
+        return str(data.get("message", "No message provided"))
 
     async def async_get_components(self) -> tuple[str, ...]:
         """
         Returns a tuple of all registered components.
         :code:`GET /api/components`
         """
-        data = await self.async_request("components")
-        return tuple(cast("list[str]", data))
+        data = await self.async_list_request("components")
+        return tuple(data)

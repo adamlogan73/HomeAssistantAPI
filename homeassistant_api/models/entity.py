@@ -1,18 +1,20 @@
 """Module for Entity and entity Group data models"""
 
-from datetime import datetime
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Optional
 
 from pydantic import Field
 
 from homeassistant_api.models.base import BaseModel
-from homeassistant_api.models.history import History
-from homeassistant_api.models.states import State
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from homeassistant_api import Client
+    from homeassistant_api.models.history import History
+    from homeassistant_api.models.states import State
 
 
 class Group(BaseModel):
@@ -21,7 +23,7 @@ class Group(BaseModel):
     def __init__(
         self,
         *args: Any,  # noqa: ANN401
-        _client: Optional["Client"] = None,
+        _client: Client | None = None,
         **kwargs: Any,  # noqa: ANN401
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -31,15 +33,15 @@ class Group(BaseModel):
         ...,
         description="A unique string identifying different types/groups of entities.",
     )
-    _client: "Client"
-    entities: dict[str, "Entity"] = Field(
+    _client: Client
+    entities: dict[str, Entity] = Field(
         {},
         description="A dictionary of all entities belonging to the group "
         "indexed by their :code:`entity_id`.",
     )
 
     @property
-    def client(self) -> "Client":
+    def client(self) -> Client:
         return self._client
 
     def add_entity(self, slug: str, state: State) -> None:
@@ -53,7 +55,7 @@ class Group(BaseModel):
             group=self,
         )
 
-    def get_entity(self, slug: str) -> Optional["Entity"]:
+    def get_entity(self, slug: str) -> Entity | None:
         """Returns Entity with the given name if it exists. Otherwise returns None"""
         return self.entities.get(slug)
 

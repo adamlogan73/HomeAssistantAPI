@@ -1,5 +1,7 @@
 """Module for the Entity State model."""
 
+from __future__ import annotations
+
 from datetime import datetime
 from datetime import timezone
 
@@ -7,7 +9,7 @@ from pydantic import Field
 
 from homeassistant_api.models.base import BaseModel
 from homeassistant_api.models.base import DatetimeIsoField
-from homeassistant_api.utils import JSONType
+from homeassistant_api.utils import JSONType  # noqa: TC001
 
 __all__ = (
     "Context",
@@ -32,7 +34,7 @@ class Context(BaseModel):
     )
 
     @classmethod
-    def from_json(cls, json: dict[str, JSONType]) -> "Context":
+    def from_json(cls, json: dict[str, JSONType]) -> Context:
         """Constructs Context model from json data"""
         return cls.model_validate(json)
 
@@ -67,6 +69,6 @@ class State(BaseModel):
     )
 
     @classmethod
-    def from_json(cls, json: dict[str, JSONType]) -> "State":
+    def from_json(cls, json: dict[str, JSONType]) -> State:
         """Constructs State model from json data"""
         return cls.model_validate(json)

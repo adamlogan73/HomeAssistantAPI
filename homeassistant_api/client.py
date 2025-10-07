@@ -10,7 +10,7 @@ from homeassistant_api.rawclient import RawClient
 logger = logging.getLogger(__name__)
 
 
-class Client(RawClient, RawAsyncClient):
+class Client(RawAsyncClient, RawClient):
     """
     The all-in-one class to interact with Home Assistant!
 
