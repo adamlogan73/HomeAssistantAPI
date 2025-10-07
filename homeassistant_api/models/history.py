@@ -1,5 +1,7 @@
 """Module for the History model."""
 
+from typing import Any
+
 from pydantic import Field
 
 from homeassistant_api.models.base import BaseModel
@@ -14,7 +16,7 @@ class History(BaseModel):
         description="A tuple of previous states of an entity.",
     )
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
         if self.entity_id is None:
             msg = "Invalid entity_id"

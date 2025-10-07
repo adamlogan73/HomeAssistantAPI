@@ -29,9 +29,9 @@ class Domain(BaseModel):
 
     def __init__(
         self,
-        *args,
+        *args: Any,  # noqa: ANN401
         _client: Client | WebsocketClient | None = None,
-        **kwargs,
+        **kwargs: Any,  # noqa: ANN401
     ) -> None:
         super().__init__(*args, **kwargs)
         if _client is None:
@@ -68,12 +68,12 @@ class Domain(BaseModel):
         services = cast("dict[str, dict[str, JSONType]]", json.get("services"))
         if not isinstance(services, dict):
             msg = "Service data is malformed."
-            raise ValueError(msg)
+            raise TypeError(msg)
         for service_id, data in services.items():
             domain._add_service(service_id, **data)
         return domain
 
-    def _add_service(self, service_id: str, **data) -> None:
+    def _add_service(self, service_id: str, **data: Any) -> None:  # noqa: ANN401
         """Registers services into a domain to be used or accessed. Used internally."""
         self.services.update(
             {
@@ -89,17 +89,11 @@ class Domain(BaseModel):
         """Return a Service with the given service_id, returns None if no such service exists"""
         return self.services.get(service_id)
 
-    def __getattr__(self, attr: str):
+    def __getattr__(self, attr: str) -> Any:  # noqa: ANN401
         """Allows services accessible as attributes"""
         if attr in self.services:
             return self.get_service(attr)
-        try:
-            return super().__getattribute__(attr)
-        except AttributeError as err:
-            try:
-                return object.__getattribute__(self, attr)
-            except AttributeError as e:
-                raise e from err
+        return self.__getattribute__(attr)
 
 
 # Sources:
@@ -162,7 +156,7 @@ class ServiceFieldSelectorTextType(str, Enum):
     TEL = "tel"
     URL = "url"
     EMAIL = "email"
-    PASSWORD = "password"
+    PASSWORD = "password"  # noqa: S105
     DATE = "date"
     MONTH = "month"
     WEEK = "week"
@@ -583,7 +577,7 @@ class Service(BaseModel):
 
     def trigger(
         self,
-        **service_data,
+        **service_data: Any,  # noqa: ANN401
     ) -> (
         tuple[State, ...]
         | tuple[tuple[State, ...], dict[str, JSONType]]
@@ -606,7 +600,7 @@ class Service(BaseModel):
 
     async def async_trigger(
         self,
-        **service_data,
+        **service_data: Any,  # noqa: ANN401
     ) -> tuple[State, ...] | tuple[tuple[State, ...], dict[str, JSONType]]:
         """Triggers the service associated with this object."""
         try:
@@ -624,7 +618,7 @@ class Service(BaseModel):
 
     def __call__(
         self,
-        **service_data,
+        **service_data: Any,  # noqa: ANN401
     ) -> (
         tuple[State, ...]
         | tuple[tuple[State, ...], dict[str, JSONType]]
@@ -642,11 +636,11 @@ class Service(BaseModel):
         frame: FrameType | None | bool = inspect.currentframe()
         if not isinstance(frame, FrameType):
             msg = "Unable to inspect current frame"
-            raise ReferenceError(msg)
+            raise TypeError(msg)
         parent_frame = frame.f_back
         if not isinstance(parent_frame, FrameType):
             msg = "Unable to inspect parent frame"
-            raise ReferenceError(msg)
+            raise TypeError(msg)
         try:
             if inspect.iscoroutinefunction(
                 caller := gc.get_referrers(parent_frame.f_code)[0],

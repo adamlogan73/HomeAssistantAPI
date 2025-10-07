@@ -18,7 +18,12 @@ if TYPE_CHECKING:
 class Group(BaseModel):
     """Represents the groups that entities belong to."""
 
-    def __init__(self, *args, _client: Optional["Client"] = None, **kwargs) -> None:
+    def __init__(
+        self,
+        *args: Any,  # noqa: ANN401
+        _client: Optional["Client"] = None,
+        **kwargs: Any,  # noqa: ANN401
+    ) -> None:
         super().__init__(*args, **kwargs)
         object.__setattr__(self, "_client", _client)
 
@@ -52,10 +57,10 @@ class Group(BaseModel):
         """Returns Entity with the given name if it exists. Otherwise returns None"""
         return self.entities.get(slug)
 
-    def __getattr__(self, key: str) -> Any:
+    def __getattr__(self, key: str) -> Any:  # noqa: ANN401
         if key in self.entities:
             return self.get_entity(key)
-        return super().__getattribute__(key)
+        return getattr(super(), key)
 
 
 class Entity(BaseModel):

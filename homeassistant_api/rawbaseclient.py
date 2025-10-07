@@ -60,7 +60,7 @@ class RawBaseClient:
             headers.update(self._headers)
         else:
             msg = f"headers must be dict or dict subclass, not type {type(headers)!r}"
-            raise ValueError(msg)
+            raise TypeError(msg)
         return headers
 
     @staticmethod

@@ -84,12 +84,12 @@ async def test_async_method_not_allowed_error(async_cached_client: Client) -> No
 
 
 def test_wrong_headers(cached_client: Client) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         cached_client.request("", headers=1234567890)  # type: ignore[arg-type]
 
 
 async def test_async_wrong_headers(async_cached_client: Client) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         await async_cached_client.async_request("", headers=1234567890)  # type: ignore[arg-type]
 
 
@@ -185,7 +185,7 @@ async def test_async_exception_malformed_data_error() -> None:
                 "{this is not valid json}",
                 {"Content-Type": "application/json"},
             ),
-        ).process()
+        ).process_async()
 
 
 def test_exception_internal_server_error() -> None:

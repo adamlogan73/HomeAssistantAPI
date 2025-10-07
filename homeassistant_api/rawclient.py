@@ -1,10 +1,11 @@
 """Module for all interaction with homeassistant."""
 
-from __future__ import annotations
-
 import json
 import logging
+from collections.abc import Generator
+from datetime import datetime
 from posixpath import join
+from types import TracebackType
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Literal
@@ -31,10 +32,6 @@ from homeassistant_api.utils import JSONType
 from homeassistant_api.utils import prepare_entity_id
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
-    from datetime import datetime
-    from types import TracebackType
-
     from homeassistant_api import Client
 else:
     Client = None  # pylint: disable=invalid-name
@@ -100,7 +97,7 @@ class RawClient(RawBaseClient):
         headers: dict[str, str] | None = None,
         decode_bytes: bool = True,
         **kwargs: Any,  # noqa: ANN401
-    ) -> Any:
+    ) -> Any:  # noqa: ANN401
         """Base method for making requests to the api"""
         try:
             if self.global_request_kwargs is not None:
@@ -126,7 +123,7 @@ class RawClient(RawBaseClient):
         response: ResponseType,
         *,
         decode_bytes: bool = True,
-    ) -> Any:
+    ) -> Any:  # noqa: ANN401
         """Processes responses from the API and formats them"""
         return Processing(response=response, decode_bytes=decode_bytes).process()
 

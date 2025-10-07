@@ -1,11 +1,12 @@
 """Module for interacting with Home Assistant asyncronously."""
 
-from __future__ import annotations
-
 import asyncio
 import json
 import logging
+from collections.abc import AsyncGenerator
+from datetime import datetime
 from posixpath import join
+from types import TracebackType
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Literal
@@ -32,9 +33,6 @@ from homeassistant_api.utils import JSONType
 from homeassistant_api.utils import prepare_entity_id
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
-    from datetime import datetime
-
     from homeassistant_api import Client
 else:
     Client = object
@@ -57,12 +55,12 @@ class RawAsyncClient(RawBaseClient):
 
     def __init__(
         self,
-        *args,
+        *args: Any,  # noqa: ANN401
         async_cache_session: Literal[False]
         | None
         | aiohttp_client_cache.session.CachedSession = None,  # Explicitly disable cache with async_cache_session=False
         verify_ssl: bool = True,
-        **kwargs,
+        **kwargs: Any,  # noqa: ANN401
     ) -> None:
         RawBaseClient.__init__(self, *args, **kwargs)
         connector = aiohttp.TCPConnector(verify_ssl=False) if not verify_ssl else None
@@ -95,7 +93,12 @@ class RawAsyncClient(RawBaseClient):
             raise
         return self
 
-    async def __aexit__(self, _, __, ___) -> None:
+    async def __aexit__(
+        self,
+        _: type[BaseException] | None,
+        __: BaseException | None,
+        ___: TracebackType | None,
+    ) -> None:
         logger.debug("Exiting async requests session %r", self.async_cache_session)
         await self.async_cache_session.close()
 
@@ -131,7 +134,7 @@ class RawAsyncClient(RawBaseClient):
     @staticmethod
     async def async_response_logic(response: AsyncResponseType) -> Any:  # noqa: ANN401
         """Processes custom mimetype content asyncronously."""
-        return await Processing(response=response).process()
+        return await Processing(response=response).process_async()
 
     # API information methods
     async def async_get_error_log(self) -> str:
@@ -150,8 +153,8 @@ class RawAsyncClient(RawBaseClient):
 
     async def async_get_logbook_entries(
         self,
-        *args,
-        **kwargs,
+        *args: Any,  # noqa: ANN401
+        **kwargs: Any,  # noqa: ANN401
     ) -> AsyncGenerator[LogbookEntry, None]:
         """
         Returns a list of logbook entries from homeassistant.
@@ -227,7 +230,9 @@ class RawAsyncClient(RawBaseClient):
         Asks Home Assistant if its running.
         :code:`GET /api/`
         """
-        res = cast("dict[Any, Any]", await self.async_request(""))
+        res = await self.async_request("")
+        if not isinstance(res, dict):
+            raise TypeError
         return res.get("message") == "API running."
 
     # Entity methods
